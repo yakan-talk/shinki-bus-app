@@ -267,50 +267,62 @@ class ShinkiNaviLiveClient:
             }
 
 
-def _build_track_stops(direction: str, origin_label: str, route_no: str = "") -> List[Dict[str, Any]]:
-    """路線図バー上に表示する主要停留所（％位置・ラベル・乗車停留所フラグ）を返す"""
+def _build_track_stops(
+    direction: str,
+    origin_label: str,
+    route_no: str = "",
+    active_stop_names: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    路線図バー上に表示する停留所リストを返す。
+    - 始発・乗車停留所(のりば)・終点は常に文字を表示
+    - 途中の停留所はドット(点)を表示し、現在バスが走行中の前後2駅のみ文字を表示する
+    """
+    active_set = set(active_stop_names or [])
     if direction == "to_univ":
-        return [
-            {"label": "姫路駅(北口)", "percent": 0, "is_boarding": True},
-            {"label": "大手門前", "percent": 25, "is_boarding": False},
-            {"label": "辻井", "percent": 50, "is_boarding": False},
-            {"label": "横関", "percent": 75, "is_boarding": False},
-            {"label": "県立大工学部", "percent": 100, "is_boarding": False},
+        stops = [
+            {"label": "姫路駅(北口)", "percent": 0, "is_boarding": True, "always_label": True},
+            {"label": "大手門前", "percent": 25, "is_boarding": False, "always_label": False},
+            {"label": "辻井", "percent": 50, "is_boarding": False, "always_label": False},
+            {"label": "横関", "percent": 75, "is_boarding": False, "always_label": False},
+            {"label": "県立大工学部", "percent": 100, "is_boarding": False, "always_label": True},
         ]
-
-    if "県立大工学部始発" in origin_label:
+    elif "県立大工学部始発" in origin_label:
         if route_no == "直行":
-            return [
-                {"label": "県立大工学部", "percent": 0, "is_boarding": True},
-                {"label": "直行（ノンストップ）", "percent": 50, "is_boarding": False},
-                {"label": "姫路駅(北口)", "percent": 100, "is_boarding": False},
+            stops = [
+                {"label": "県立大工学部", "percent": 0, "is_boarding": True, "always_label": True},
+                {"label": "直行", "percent": 50, "is_boarding": False, "always_label": True},
+                {"label": "姫路駅(北口)", "percent": 100, "is_boarding": False, "always_label": True},
             ]
-        return [
-            {"label": "県立大工学部", "percent": 0, "is_boarding": True},
-            {"label": "横関", "percent": 28, "is_boarding": False},
-            {"label": "辻井", "percent": 55, "is_boarding": False},
-            {"label": "白鷺橋", "percent": 78, "is_boarding": False},
-            {"label": "姫路駅(北口)", "percent": 100, "is_boarding": False},
+        else:
+            stops = [
+                {"label": "県立大工学部", "percent": 0, "is_boarding": True, "always_label": True},
+                {"label": "横関", "percent": 33, "is_boarding": False, "always_label": False},
+                {"label": "白鷺橋", "percent": 66, "is_boarding": False, "always_label": False},
+                {"label": "姫路駅(北口)", "percent": 100, "is_boarding": False, "always_label": True},
+            ]
+    elif "書写西住宅" in origin_label:
+        stops = [
+            {"label": "書写西住宅", "percent": 0, "is_boarding": False, "always_label": True},
+            {"label": "集会所前", "percent": 23, "is_boarding": False, "always_label": False},
+            {"label": "書写台１丁目", "percent": 46, "is_boarding": False, "always_label": False},
+            {"label": "県立大工学部", "percent": 70, "is_boarding": True, "always_label": True},
+            {"label": "姫路駅(北口)", "percent": 100, "is_boarding": False, "always_label": True},
+        ]
+    else:
+        origin_short = origin_label.replace("発", "").replace("・荒木", "")
+        stops = [
+            {"label": origin_short, "percent": 0, "is_boarding": False, "always_label": True},
+            {"label": "打越", "percent": 17, "is_boarding": False, "always_label": False},
+            {"label": "六角", "percent": 34, "is_boarding": False, "always_label": False},
+            {"label": "床坂菅生台", "percent": 50, "is_boarding": False, "always_label": False},
+            {"label": "県立大工学部", "percent": 70, "is_boarding": True, "always_label": True},
+            {"label": "姫路駅(北口)", "percent": 100, "is_boarding": False, "always_label": True},
         ]
 
-    if "書写西住宅" in origin_label:
-        return [
-            {"label": "書写西住宅", "percent": 0, "is_boarding": False},
-            {"label": "書写台1丁目", "percent": 24, "is_boarding": False},
-            {"label": "県立大工学部", "percent": 48, "is_boarding": True},
-            {"label": "横関", "percent": 74, "is_boarding": False},
-            {"label": "姫路駅(北口)", "percent": 100, "is_boarding": False},
-        ]
-
-    origin_short = origin_label.replace("発", "").replace("・荒木", "")
-    return [
-        {"label": origin_short, "percent": 0, "is_boarding": False},
-        {"label": "打越", "percent": 24, "is_boarding": False},
-        {"label": "六角", "percent": 44, "is_boarding": False},
-        {"label": "床坂菅生台", "percent": 62, "is_boarding": False},
-        {"label": "県立大工学部", "percent": 80, "is_boarding": True},
-        {"label": "姫路駅(北口)", "percent": 100, "is_boarding": False},
-    ]
+    for s in stops:
+        s["show_label"] = bool(s["always_label"] or (s["label"] in active_set))
+    return stops
 
 
 def _estimate_bus_position(
@@ -321,21 +333,20 @@ def _estimate_bus_position(
     route_no: str = "",
     gps_station_name: Optional[str] = None,
 ) -> Dict[str, Any]:
-    stops = ROUTE_STOPS_TO_STATION if direction == "to_station" else ROUTE_STOPS_TO_UNIV
-    boarding_idx = next((i for i, s in enumerate(stops) if s.get("zone") == "boarding"), 0)
-    track_stops = _build_track_stops(direction, origin_label, route_no)
-    boarding_pct = next((s["percent"] for s in track_stops if s.get("is_boarding")), 80)
-
     if gps_station_name:
+        track_stops = _build_track_stops(direction, origin_label, route_no, active_stop_names=[gps_station_name])
+        boarding_pct = next((s["percent"] for s in track_stops if s.get("is_boarding")), 70)
+        prog = min(max(0, boarding_pct - 4), max(8, int(boarding_pct - minutes_until_departure * 4)))
         return {
             "headline": f"「{gps_station_name}」付近を走行中",
             "subtext": f"乗車バス停まで あと約{max(0, minutes_until_departure)}分",
-            "progress_percent": min(max(0, boarding_pct - 4), max(8, int(boarding_pct - minutes_until_departure * 5))),
+            "progress_percent": prog,
             "track_stops": track_stops,
         }
 
     # 姫路駅（北口 18番のりば）始発 または 県立大工学部始発の場合
     if direction == "to_univ" or "県立大工学部始発" in origin_label:
+        track_stops = _build_track_stops(direction, origin_label, route_no)
         boarding_name = "姫路駅（北口 18番のりば）" if direction == "to_univ" else "県立大工学部"
         if minutes_until_departure > 5:
             return {
@@ -356,25 +367,26 @@ def _estimate_bus_position(
     if "書写西住宅" in origin_label:
         earliest_offset = -3
         upstream_stops = [
-            {"name": "書写西住宅", "offset_min": -3},
-            {"name": "集会所前", "offset_min": -2},
-            {"name": "書写台１丁目", "offset_min": -1},
-            {"name": "県立大工学部", "offset_min": 0},
+            {"name": "書写西住宅", "offset_min": -3, "percent": 0},
+            {"name": "集会所前", "offset_min": -2, "percent": 23},
+            {"name": "書写台１丁目", "offset_min": -1, "percent": 46},
+            {"name": "県立大工学部", "offset_min": 0, "percent": 70},
         ]
     else:
         earliest_offset = -10
         upstream_stops = [
-            {"name": origin_label.replace("発", ""), "offset_min": -10},
-            {"name": "打越", "offset_min": -6},
-            {"name": "六角", "offset_min": -5},
-            {"name": "床坂菅生台", "offset_min": -3},
-            {"name": "県立大工学部", "offset_min": 0},
+            {"name": origin_label.replace("発", ""), "offset_min": -10, "percent": 0},
+            {"name": "打越", "offset_min": -6, "percent": 17},
+            {"name": "六角", "offset_min": -5, "percent": 34},
+            {"name": "床坂菅生台", "offset_min": -3, "percent": 50},
+            {"name": "県立大工学部", "offset_min": 0, "percent": 70},
         ]
 
     rel_min = -minutes_until_departure
     if rel_min < earliest_offset:
         wait_to_start = abs(rel_min - earliest_offset)
         origin_clean = origin_label.replace("発", "")
+        track_stops = _build_track_stops(direction, origin_label, route_no)
         return {
             "headline": f"{origin_clean}（始発）にて発車待機中",
             "subtext": f"約{wait_to_start}分後に始発停留所を発車予定",
@@ -384,10 +396,14 @@ def _estimate_bus_position(
 
     if rel_min >= -1:
         prev_stop = upstream_stops[-2]["name"]
+        prev_prev_stop = upstream_stops[-3]["name"] if len(upstream_stops) >= 3 else prev_stop
+        track_stops = _build_track_stops(
+            direction, origin_label, route_no, active_stop_names=[prev_prev_stop, prev_stop]
+        )
         return {
             "headline": "まもなく「県立大工学部」に到着します",
             "subtext": f"1つ前の「{prev_stop}」を通過済み",
-            "progress_percent": max(4, boarding_pct - 4),
+            "progress_percent": 64,
             "track_stops": track_stops,
         }
 
@@ -404,10 +420,20 @@ def _estimate_bus_position(
             break
 
     stops_away = max(1, (len(upstream_stops) - 1) - current_idx)
-    span = abs(earliest_offset)
-    prog = max(4, min(boarding_pct - 4, int(((rel_min - earliest_offset) / max(1, span)) * boarding_pct)))
+    ratio = (rel_min - current_stop["offset_min"]) / max(1, next_stop["offset_min"] - current_stop["offset_min"])
+    prog = int(current_stop["percent"] + ratio * (next_stop["percent"] - current_stop["percent"]))
+    prog = max(4, min(66, prog))
+
     c_name = current_stop["name"]
     n_name = next_stop["name"]
+    # 走行区間の前後2駅を表示（始発〜1駅目の間なら次の2駅まで表示）
+    active_names = [c_name, n_name]
+    if current_idx == 0 and len(upstream_stops) >= 3:
+        active_names = [upstream_stops[1]["name"], upstream_stops[2]["name"]]
+    elif n_name == "県立大工学部" and current_idx >= 1:
+        active_names = [upstream_stops[current_idx - 1]["name"], c_name]
+
+    track_stops = _build_track_stops(direction, origin_label, route_no, active_stop_names=active_names)
     delay_badge = f"（遅れ+{delay_minutes}分反映）" if delay_minutes > 0 else "（定刻走行中）"
 
     return {
