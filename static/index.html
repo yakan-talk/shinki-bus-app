@@ -49,37 +49,69 @@
     </nav>
 
     <main>
-      <!-- メイン表示: 次のバス & 現在走行位置 -->
+      <!-- メイン表示: 次のバス(乗車前) / 走行中バス(乗車中・到着予想) -->
       <section class="main-card" aria-live="polite">
+        <!-- 出発済み走行中バスがある時、またはピン留め中バスがある時に表示される切替バー -->
+        <div class="mode-switch-bar hidden" id="modeSwitchBar">
+          <button type="button" class="mode-pill active" id="btnModeUpcoming">
+            これから乗る (<span id="modeUpcomingTime">--:--</span>発)
+          </button>
+          <button type="button" class="mode-pill" id="btnModeInTransit">
+            乗車中・出発済 (<span id="modeInTransitTime">--:--</span>発)
+          </button>
+        </div>
+
+        <!-- 別のバスを見ている時に元のピン留めバスへ戻れるショートカット -->
+        <button type="button" class="pinned-return-bar hidden" id="pinnedReturnBar">
+          <span>📌 ピン留め中のバス（<strong id="pinnedReturnTime">--:--</strong>発）に戻る</span>
+          <span>表示 →</span>
+        </button>
+
         <div class="main-card-header">
           <div class="route-title">
             <span class="route-badge" id="heroRouteNo">--系統</span>
             <span class="route-dest" id="heroRouteName">読み込み中...</span>
           </div>
-          <span class="status-tag" id="heroDelayPill">定刻</span>
+          <div class="header-badges">
+            <button type="button" class="pin-btn hidden" id="pinToggleBtn" title="到着までこのバスをピン留め表示">
+              <span id="pinBtnText">📌 ピン留め</span>
+            </button>
+            <span class="status-tag" id="heroDelayPill">定刻</span>
+          </div>
         </div>
 
         <div class="countdown-block">
-          <div class="countdown-label">次のバスが来るまで</div>
+          <div class="countdown-label" id="countdownLabel">次のバスが来るまで</div>
           <div class="countdown-value-row">
             <span class="countdown-prefix" id="countdownPrefix">あと</span>
             <span class="countdown-num" id="heroMinutesUntil">--</span>
             <span class="countdown-unit" id="countdownUnit">分</span>
           </div>
           <div class="schedule-meta">
-            <span>定刻 <strong id="heroScheduledTime">--:--</strong></span>
+            <span id="heroSchedLabel">定刻 <strong id="heroScheduledTime">--:--</strong></span>
             <span class="sep">/</span>
             <span id="heroDelayText">遅れ <strong>+0分</strong></span>
             <span class="sep">/</span>
-            <span>到着 <strong id="heroArrivalTime">--:--</strong></span>
+            <span>到着見込 <strong id="heroArrivalTime">--:--</strong></span>
           </div>
         </div>
 
-        <div class="location-block">
-          <div class="location-label">現在の走行位置</div>
+        <div class="location-block" id="locationBlock">
+          <div class="location-header">
+            <button type="button" class="location-toggle-head" id="locationToggleHead" aria-expanded="false" title="クリックで縦表示を展開・折りたたみ">
+              <svg class="location-chevron" id="locationChevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+              <span class="location-label" id="locationBlockLabel">現在の走行位置</span>
+            </button>
+            <div class="location-actions">
+              <button type="button" class="location-refresh-btn" id="locationRefreshBtn" title="最新情報に更新" aria-label="最新情報に更新">↻</button>
+            </div>
+          </div>
           <div class="location-main" id="heroLocationHeadline">取得中...</div>
           <div class="location-sub" id="heroLocationSubtext"></div>
-          <div class="route-track-wrap">
+          <div class="route-track-wrap" id="routeTrackWrap">
+            <div class="stop-top-labels-layer" id="stopTopLabelsLayer"></div>
             <div class="route-track-bar">
               <div class="progress-fill" id="heroProgressFill" style="width: 0%;"></div>
               <div class="stop-dots-layer" id="stopDotsLayer"></div>
@@ -91,13 +123,14 @@
             </div>
             <div class="stop-labels-layer" id="stopLabelsLayer"></div>
           </div>
+          <div class="route-vertical-wrap hidden" id="routeVerticalWrap"></div>
         </div>
       </section>
 
-      <!-- 直近5本の時刻表リスト -->
+      <!-- 直近のバスリスト -->
       <section class="list-section">
         <div class="list-header">
-          <h2 class="section-heading">直近のバス（5本）</h2>
+          <h2 class="section-heading">直近のバス（タップで位置表示）</h2>
           <span class="stop-note" id="boardingStopNote">県立大工学部前（のりば2）発</span>
         </div>
         <div class="bus-list" id="upcomingList"></div>

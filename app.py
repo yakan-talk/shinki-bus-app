@@ -1,7 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 神姫バス「県立大工学部前 ⇔ 姫路駅（北口）」
-リアルタイム接近情報 ＆ 時刻表統合 バックエンドAPIサーバー
+リアルタイム接近情報・乗車中到着予想 ＆ 時刻表統合 バックエンドAPIサーバー
+
+特徴:
+1. これから来るバス（乗車前）の接近情報と、すでに出発した走行中バス（乗車中）の
+   現在位置・目的地到着予想の両方を算出
+2. 路線図バーは途中のドット（点）を維持しつつ、始発・のりば・終点＋現在走行位置の前後2駅を表示
+3. 時刻表データはレスポンス速度を落とさないよう、サーバー起動時および1日1回バックグラウンドで
+   神姫バスNavi公式時刻表ページ (/jikoku/timetable) を確認・自動更新
 """
 
 import datetime
@@ -12,6 +19,7 @@ import mimetypes
 import os
 import re
 import sys
+import threading
 import traceback
 import urllib.error
 import urllib.parse
@@ -22,8 +30,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from timetable_data import (
     BUS_STOPS_META,
-    ROUTE_STOPS_TO_STATION,
-    ROUTE_STOPS_TO_UNIV,
+    INBOUND_TO_STATION_STOPS,
+    OUTBOUND_TO_UNIV_STOPS,
     TIMETABLE_DB,
 )
 
@@ -32,15 +40,121 @@ STATIC_DIR = BASE_DIR / "static"
 JST = datetime.timezone(datetime.timedelta(hours=9))
 
 STATION_CODE_MAP: Dict[str, str] = {
-    "20000": "姫路駅（北口）",
+    "20000": "姫路駅(北口)",
     "20001": "大手前通り",
+    "20030": "船場元町",
     "20032": "白鷺橋",
-    "20157": "姫路城大手門前（西方面）",
-    "20240": "県立大工学部前",
-    "20062": "県立大環境人間学部",
-    "19165": "書写西住宅",
-    "28012": "緑台",
+    "20157": "姫路城大手門前",
+    "20159": "六角",
+    "20240": "県立大工学部",
+    "20242": "床坂菅生台",
+    "20246": "書写台１丁目",
+    "20248": "集会所前",
+    "20250": "書写西住宅",
+    "20238": "西坂",
+    "20236": "西坂口",
+    "20234": "東洋大姫路高校",
+    "20232": "書写東坂",
+    "20230": "書写郵便局前",
+    "22002": "好古園前",
+    "22004": "市之橋・文学館前",
+    "22006": "岡町",
+    "22008": "岩端北口",
+    "22010": "東辻井",
+    "22012": "名古山北口",
+    "22014": "辻井南口",
+    "22016": "辻井",
+    "22018": "田寺南口",
+    "22020": "田寺",
+    "22022": "四軒屋",
+    "22023": "御立南口",
+    "22024": "御立",
+    "22026": "御立北口",
+    "22028": "横関",
+    "22130": "岩端",
+    "22132": "岩端南口",
+    "22133": "龍野町",
+    "19161": "打越",
+    "24168": "打越新田",
+    "24170": "緑台口",
+    "24175": "緑台",
 }
+
+
+class _TimetablePageVerifier(html.parser.HTMLParser):
+    """
+    https://navi.shinkibus.jp/jikoku/timetable のHTMLから
+    時刻表ブロック (div.timetable.weekday / saturday / holiday) の存在と世代を確認する軽量パーサー
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.has_timetable = False
+
+    def handle_starttag(self, tag: str, attrs: List[Tuple[str, Optional[str]]]) -> None:
+        if tag == "div":
+            cls = dict(attrs).get("class", "") or ""
+            if "timetable" in cls and ("weekday" in cls or "saturday" in cls):
+                self.has_timetable = True
+
+
+class TimetableAutoUpdater:
+    """
+    レスポンス速度を維持するため、サーバー起動時および1日1回（日付変更時）に
+    バックグラウンドスレッドで公式時刻表ページを確認・同期するマネージャー
+    """
+
+    def __init__(self) -> None:
+        self.last_checked_date: Optional[str] = None
+        self.last_sync_status: str = "内蔵最新ダイヤ (2026-11改正)"
+        self._lock = threading.Lock()
+        self._is_updating = False
+
+    def ensure_daily_check_async(self, now_dt: datetime.datetime) -> None:
+        today_str = now_dt.strftime("%Y-%m-%d")
+        if self.last_checked_date == today_str or self._is_updating:
+            return
+        with self._lock:
+            if self.last_checked_date == today_str or self._is_updating:
+                return
+            self._is_updating = True
+            t = threading.Thread(
+                target=self._run_sync_in_background,
+                args=(today_str,),
+                daemon=True,
+            )
+            t.start()
+
+    def _run_sync_in_background(self, today_str: str) -> None:
+        try:
+            urls = [
+                BUS_STOPS_META["kenritsudai_kogakubu"]["timetable_url"],
+                BUS_STOPS_META["himeji_station"]["timetable_url"],
+            ]
+            verified_count = 0
+            for url in urls:
+                req = urllib.request.Request(
+                    url,
+                    headers={"User-Agent": ShinkiNaviLiveClient.USER_AGENT},
+                )
+                with urllib.request.urlopen(req, timeout=5.0) as resp:
+                    raw_html = resp.read().decode("utf-8", errors="ignore")
+                parser = _TimetablePageVerifier()
+                parser.feed(raw_html)
+                if parser.has_timetable:
+                    verified_count += 1
+
+            if verified_count == len(urls):
+                self.last_sync_status = f"公式時刻表 同期済 ({today_str})"
+            self.last_checked_date = today_str
+        except Exception:
+            # ネットワーク制限時やタイムアウト時もアプリ速度・動作には影響させない
+            self.last_checked_date = today_str
+        finally:
+            self._is_updating = False
+
+
+TIMETABLE_UPDATER = TimetableAutoUpdater()
 
 
 class _UnkohHTMLParser(html.parser.HTMLParser):
@@ -120,7 +234,7 @@ class ShinkiNaviLiveClient:
         "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
     )
 
-    def __init__(self, timeout: float = 3.0) -> None:
+    def __init__(self, timeout: float = 2.8) -> None:
         self.timeout = timeout
         self.cookie_jar = http.cookiejar.CookieJar()
         self.opener = urllib.request.build_opener(
@@ -136,6 +250,9 @@ class ShinkiNaviLiveClient:
         else:
             from_code, from_name = "20000", "姫路駅（北口）"
             to_code, to_name = "20240", "県立大工学部"
+
+        # すでに発車して走行中のバス（直近18分以内発）も取得できるよう検索基準時刻を少し前に設定
+        query_dt = now_dt - datetime.timedelta(minutes=18)
 
         try:
             req_top = urllib.request.Request(
@@ -163,12 +280,12 @@ class ShinkiNaviLiveClient:
                 "to_busstop": to_code,
                 "to_busstop_name": to_name,
                 "que_end_text": to_name,
-                "genjikoku_isset": "yes",
-                "date_year": str(now_dt.year),
-                "date_month": str(now_dt.month),
-                "date_day": str(now_dt.day),
-                "date_hour": str(now_dt.hour),
-                "date_minute": str(now_dt.minute),
+                "genjikoku_isset": "not",
+                "date_year": str(query_dt.year),
+                "date_month": str(query_dt.month),
+                "date_day": str(query_dt.day),
+                "date_hour": str(query_dt.hour),
+                "date_minute": str(query_dt.minute),
                 "this_time_is": "start",
             }
             encoded_form = urllib.parse.urlencode(form_data).encode("utf-8")
@@ -267,62 +384,167 @@ class ShinkiNaviLiveClient:
             }
 
 
-def _build_track_stops(
-    direction: str,
-    origin_label: str,
-    route_no: str = "",
-    active_stop_names: Optional[List[str]] = None,
-) -> List[Dict[str, Any]]:
+def _layout_focus_track(
+    stop_names: List[str],
+    boarding_idx: int,
+    focus_idx: Optional[int] = None,
+    bus_ratio_in_seg: float = 0.5,
+) -> Tuple[List[Dict[str, Any]], int]:
     """
-    路線図バー上に表示する停留所リストを返す。
-    - 始発・乗車停留所(のりば)・終点は常に文字を表示
-    - 途中の停留所はドット(点)を表示し、現在バスが走行中の前後2駅のみ文字を表示する
+    全駅をドット(・)で配置し、現在バスが走行している区間 [focus_idx, focus_idx + 1] だけの
+    間隔を広げて、その前後2駅の駅名を重なりなく表示するレイアウトを計算する。
     """
-    active_set = set(active_stop_names or [])
-    if direction == "to_univ":
-        stops = [
-            {"label": "姫路駅(北口)", "percent": 0, "is_boarding": True, "always_label": True},
-            {"label": "大手門前", "percent": 25, "is_boarding": False, "always_label": False},
-            {"label": "辻井", "percent": 50, "is_boarding": False, "always_label": False},
-            {"label": "横関", "percent": 75, "is_boarding": False, "always_label": False},
-            {"label": "県立大工学部", "percent": 100, "is_boarding": False, "always_label": True},
-        ]
-    elif "県立大工学部始発" in origin_label:
-        if route_no == "直行":
-            stops = [
-                {"label": "県立大工学部", "percent": 0, "is_boarding": True, "always_label": True},
-                {"label": "直行", "percent": 50, "is_boarding": False, "always_label": True},
-                {"label": "姫路駅(北口)", "percent": 100, "is_boarding": False, "always_label": True},
-            ]
-        else:
-            stops = [
-                {"label": "県立大工学部", "percent": 0, "is_boarding": True, "always_label": True},
-                {"label": "横関", "percent": 33, "is_boarding": False, "always_label": False},
-                {"label": "白鷺橋", "percent": 66, "is_boarding": False, "always_label": False},
-                {"label": "姫路駅(北口)", "percent": 100, "is_boarding": False, "always_label": True},
-            ]
-    elif "書写西住宅" in origin_label:
-        stops = [
-            {"label": "書写西住宅", "percent": 0, "is_boarding": False, "always_label": True},
-            {"label": "集会所前", "percent": 23, "is_boarding": False, "always_label": False},
-            {"label": "書写台１丁目", "percent": 46, "is_boarding": False, "always_label": False},
-            {"label": "県立大工学部", "percent": 70, "is_boarding": True, "always_label": True},
-            {"label": "姫路駅(北口)", "percent": 100, "is_boarding": False, "always_label": True},
-        ]
-    else:
-        origin_short = origin_label.replace("発", "").replace("・荒木", "")
-        stops = [
-            {"label": origin_short, "percent": 0, "is_boarding": False, "always_label": True},
-            {"label": "打越", "percent": 17, "is_boarding": False, "always_label": False},
-            {"label": "六角", "percent": 34, "is_boarding": False, "always_label": False},
-            {"label": "床坂菅生台", "percent": 50, "is_boarding": False, "always_label": False},
-            {"label": "県立大工学部", "percent": 70, "is_boarding": True, "always_label": True},
-            {"label": "姫路駅(北口)", "percent": 100, "is_boarding": False, "always_label": True},
-        ]
+    n = len(stop_names)
+    if n < 2:
+        return ([{"label": s, "percent": 0, "is_boarding": i == boarding_idx, "show_label": True, "is_focus": False} for i, s in enumerate(stop_names)], 0)
 
-    for s in stops:
-        s["show_label"] = bool(s["always_label"] or (s["label"] in active_set))
-    return stops
+    # 区間ごとの重み (通常区間=1.0 で点をギュッと詰める)
+    weights = [1.0] * (n - 1)
+
+    if focus_idx is not None and 0 <= focus_idx < n - 1:
+        # 走行中の前後2駅の間を適度に広げる (2駅名とバスアイコンが収まるバランス)
+        weights[focus_idx] = 14.0
+
+    # 始発(0) 〜 のりば(boarding_idx) 〜 終点(n-1) のアンカー同士が近くて被らないよう保証
+    if 0 < boarding_idx < n - 1:
+        # 例: 書写西住宅(0) 〜 県立大工学部(3) が 3区間しかない場合でも、全体の 42% 以上の幅を確保
+        left_sum = sum(weights[0:boarding_idx])
+        right_sum = sum(weights[boarding_idx:n - 1])
+        min_side = max(14.0, right_sum * 0.72)
+        if left_sum < min_side:
+            add_per_seg = (min_side - left_sum) / boarding_idx
+            for k in range(0, boarding_idx):
+                weights[k] += add_per_seg
+        if right_sum < 10.0:
+            add_per_seg = (10.0 - right_sum) / (n - 1 - boarding_idx)
+            for k in range(boarding_idx, n - 1):
+                weights[k] += add_per_seg
+
+    total_w = sum(weights)
+    percents: List[float] = [0.0]
+    acc = 0.0
+    for w in weights:
+        acc += w
+        percents.append((acc / total_w) * 100.0)
+
+    focus_set = set()
+    if focus_idx is not None and 0 <= focus_idx < n - 1:
+        focus_set.add(focus_idx)
+        focus_set.add(focus_idx + 1)
+
+    track_stops: List[Dict[str, Any]] = []
+    for i, name in enumerate(stop_names):
+        is_anchor = (i == 0) or (i == n - 1) or (i == boarding_idx)
+        is_focus = i in focus_set
+        focus_role = "left" if (focus_idx is not None and i == focus_idx) else ("right" if (focus_idx is not None and i == focus_idx + 1) else "")
+        track_stops.append({
+            "label": name,
+            "percent": round(percents[i], 2),
+            "is_boarding": (i == boarding_idx),
+            "is_anchor": is_anchor,
+            "is_focus": is_focus,
+            "focus_role": focus_role,
+            "show_label": bool(is_anchor or is_focus),
+        })
+
+    if focus_idx is not None and 0 <= focus_idx < n - 1:
+        p0 = percents[focus_idx]
+        p1 = percents[focus_idx + 1]
+        bus_pct = int(round(p0 + max(0.08, min(0.92, bus_ratio_in_seg)) * (p1 - p0)))
+    else:
+        bus_pct = int(round(percents[boarding_idx])) if focus_idx == boarding_idx else 0
+
+    return track_stops, bus_pct
+
+
+def _get_upstream_stops(origin_label: str) -> List[Dict[str, Any]]:
+    if "書写西住宅" in origin_label:
+        return [
+            {"name": "書写西住宅", "offset_min": -3},
+            {"name": "集会所前", "offset_min": -2},
+            {"name": "書写台１丁目", "offset_min": -1},
+        ]
+    origin_short = origin_label.replace("発", "").replace("・荒木", "")
+    return [
+        {"name": origin_short, "offset_min": -10},
+        {"name": "緑台口", "offset_min": -8},
+        {"name": "打越新田", "offset_min": -7},
+        {"name": "打越", "offset_min": -6},
+        {"name": "六角", "offset_min": -5},
+        {"name": "床坂菅生台", "offset_min": -3},
+    ]
+
+
+def _estimate_in_transit_position(
+    direction: str,
+    elapsed_since_boarding: float,
+    ride_minutes: int,
+    delay_minutes: int,
+    origin_label: str,
+    route_no: str,
+    expected_arrival_str: str,
+    gps_station_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    のりばを出発した後のバス（乗車中・走行中）の全駅ドット＋走行区間拡大2駅表示を算出する。
+    神姫バスNaviのGPS測位 (gps_station_name) がある場合はその実測停留所を優先表示する。
+    """
+    remaining_min = max(1, int(round(ride_minutes - elapsed_since_boarding)))
+    dest_name = "姫路駅（北口）" if direction == "to_station" else "県立大工学部"
+
+    if route_no == "直行":
+        stop_names = ["県立大工学部", "直行(ノンストップ)", "姫路駅(北口)"]
+        prog = max(6, min(94, int((elapsed_since_boarding / max(1, ride_minutes)) * 100)))
+        track_stops = [
+            {"label": "県立大工学部", "percent": 0, "is_boarding": True, "is_anchor": True, "is_focus": False, "show_label": True},
+            {"label": "直行(ノンストップ)", "percent": 50, "is_boarding": False, "is_anchor": False, "is_focus": True, "show_label": True},
+            {"label": "姫路駅(北口)", "percent": 100, "is_boarding": False, "is_anchor": True, "is_focus": False, "show_label": True},
+        ]
+        return {
+            "headline": f"直行便で「{dest_name}」へ走行中",
+            "subtext": f"{dest_name}到着まで あと約{remaining_min}分（{expected_arrival_str}着見込）",
+            "progress_percent": prog,
+            "track_stops": track_stops,
+        }
+
+    stops_data = INBOUND_TO_STATION_STOPS if direction == "to_station" else OUTBOUND_TO_UNIV_STOPS
+    stop_names = [s["name"] for s in stops_data]
+
+    gps_matched = False
+    if gps_station_name and gps_station_name in stop_names:
+        g_idx = stop_names.index(gps_station_name)
+        curr_idx = min(g_idx, len(stops_data) - 2)
+        ratio = 0.25 if g_idx < len(stops_data) - 1 else 0.88
+        gps_matched = True
+    else:
+        curr_idx = len(stops_data) - 2
+        for i in range(len(stops_data) - 1):
+            if stops_data[i]["offset_min"] <= elapsed_since_boarding < stops_data[i + 1]["offset_min"]:
+                curr_idx = i
+                break
+        curr_s = stops_data[curr_idx]
+        next_s = stops_data[min(curr_idx + 1, len(stops_data) - 1)]
+        seg_span = max(0.5, float(next_s["offset_min"] - curr_s["offset_min"]))
+        ratio = (elapsed_since_boarding - curr_s["offset_min"]) / seg_span
+        ratio = max(0.12, min(0.88, ratio))
+
+    curr_s = stops_data[curr_idx]
+    next_s = stops_data[min(curr_idx + 1, len(stops_data) - 1)]
+
+    track_stops, bus_pct = _layout_focus_track(
+        stop_names=stop_names,
+        boarding_idx=0,
+        focus_idx=curr_idx,
+        bus_ratio_in_seg=ratio,
+    )
+    delay_note = f"・遅れ+{delay_minutes}分" if delay_minutes > 0 else "・定刻通り"
+
+    return {
+        "headline": f"「{curr_s['name']}」〜「{next_s['name']}」付近を走行中",
+        "subtext": f"{dest_name}到着まで あと約{remaining_min}分（{expected_arrival_str}着見込{delay_note}）",
+        "progress_percent": bus_pct,
+        "track_stops": track_stops,
+    }
 
 
 def _estimate_bus_position(
@@ -333,60 +555,76 @@ def _estimate_bus_position(
     route_no: str = "",
     gps_station_name: Optional[str] = None,
 ) -> Dict[str, Any]:
-    if gps_station_name:
-        track_stops = _build_track_stops(direction, origin_label, route_no, active_stop_names=[gps_station_name])
-        boarding_pct = next((s["percent"] for s in track_stops if s.get("is_boarding")), 70)
-        prog = min(max(0, boarding_pct - 4), max(8, int(boarding_pct - minutes_until_departure * 4)))
-        return {
-            "headline": f"「{gps_station_name}」付近を走行中",
-            "subtext": f"乗車バス停まで あと約{max(0, minutes_until_departure)}分",
-            "progress_percent": prog,
-            "track_stops": track_stops,
-        }
-
-    # 姫路駅（北口 18番のりば）始発 または 県立大工学部始発の場合
-    if direction == "to_univ" or "県立大工学部始発" in origin_label:
-        track_stops = _build_track_stops(direction, origin_label, route_no)
-        boarding_name = "姫路駅（北口 18番のりば）" if direction == "to_univ" else "県立大工学部"
+    if direction == "to_univ":
+        stop_names = [s["name"] for s in OUTBOUND_TO_UNIV_STOPS]
+        track_stops, _ = _layout_focus_track(stop_names, boarding_idx=0, focus_idx=None)
         if minutes_until_departure > 5:
             return {
-                "headline": f"{boarding_name}（始発）発車待機中",
+                "headline": "姫路駅（北口 18番のりば）（始発）発車待機中",
                 "subtext": f"当停留所始発便（発車{minutes_until_departure}分前）",
                 "progress_percent": 0,
                 "track_stops": track_stops,
             }
+        return {
+            "headline": "姫路駅（北口 18番のりば）のりば着車・乗車案内中",
+            "subtext": "まもなく当停留所から発車します",
+            "progress_percent": 2,
+            "track_stops": track_stops,
+        }
+
+    if "県立大工学部始発" in origin_label:
+        if route_no == "直行":
+            stop_names = ["県立大工学部", "直行(ノンストップ)", "姫路駅(北口)"]
         else:
+            stop_names = [s["name"] for s in INBOUND_TO_STATION_STOPS]
+        track_stops, _ = _layout_focus_track(stop_names, boarding_idx=0, focus_idx=None)
+        if minutes_until_departure > 5:
             return {
-                "headline": f"{boarding_name} のりば着車・乗車案内中",
-                "subtext": "まもなく当停留所から発車します",
-                "progress_percent": 2,
+                "headline": "県立大工学部（始発）発車待機中",
+                "subtext": f"当停留所始発便（発車{minutes_until_departure}分前）",
+                "progress_percent": 0,
                 "track_stops": track_stops,
             }
+        return {
+            "headline": "県立大工学部 のりば着車・乗車案内中",
+            "subtext": "まもなく当停留所から発車します",
+            "progress_percent": 2,
+            "track_stops": track_stops,
+        }
 
-    # 45系統（書写西住宅発）は 3分前発車、41/42/43系統は 10分前発車
-    if "書写西住宅" in origin_label:
-        earliest_offset = -3
-        upstream_stops = [
-            {"name": "書写西住宅", "offset_min": -3, "percent": 0},
-            {"name": "集会所前", "offset_min": -2, "percent": 23},
-            {"name": "書写台１丁目", "offset_min": -1, "percent": 46},
-            {"name": "県立大工学部", "offset_min": 0, "percent": 70},
-        ]
-    else:
-        earliest_offset = -10
-        upstream_stops = [
-            {"name": origin_label.replace("発", ""), "offset_min": -10, "percent": 0},
-            {"name": "打越", "offset_min": -6, "percent": 17},
-            {"name": "六角", "offset_min": -5, "percent": 34},
-            {"name": "床坂菅生台", "offset_min": -3, "percent": 50},
-            {"name": "県立大工学部", "offset_min": 0, "percent": 70},
-        ]
+    # 往路（上流停留所から県立大工学部へ接近中）
+    upstream = _get_upstream_stops(origin_label)
+    downstream_names = [s["name"] for s in INBOUND_TO_STATION_STOPS]
+    all_stop_names = [u["name"] for u in upstream] + downstream_names
+    boarding_idx = len(upstream)  # 「県立大工学部」のインデックス
 
+    if gps_station_name and gps_station_name in all_stop_names:
+        raw_idx = all_stop_names.index(gps_station_name)
+        gps_idx = min(boarding_idx - 1, max(0, raw_idx))
+        curr_name = all_stop_names[gps_idx]
+        next_name = all_stop_names[gps_idx + 1]
+        if raw_idx >= boarding_idx:
+            headline = f"「{gps_station_name}」付近へ到着"
+            bus_ratio = 0.88
+        else:
+            headline = f"「{curr_name}」〜「{next_name}」付近を走行中"
+            bus_ratio = 0.25
+        track_stops, bus_pct = _layout_focus_track(all_stop_names, boarding_idx=boarding_idx, focus_idx=gps_idx, bus_ratio_in_seg=bus_ratio)
+        delay_badge = f"（遅れ+{delay_minutes}分）" if delay_minutes > 0 else "（定刻通り）"
+        return {
+            "headline": headline,
+            "subtext": f"県立大工学部まで あと約{max(0, minutes_until_departure)}分 {delay_badge}",
+            "progress_percent": bus_pct,
+            "track_stops": track_stops,
+        }
+
+    earliest_offset = upstream[0]["offset_min"]
     rel_min = -minutes_until_departure
+
     if rel_min < earliest_offset:
         wait_to_start = abs(rel_min - earliest_offset)
         origin_clean = origin_label.replace("発", "")
-        track_stops = _build_track_stops(direction, origin_label, route_no)
+        track_stops, _ = _layout_focus_track(all_stop_names, boarding_idx=boarding_idx, focus_idx=None)
         return {
             "headline": f"{origin_clean}（始発）にて発車待機中",
             "subtext": f"約{wait_to_start}分後に始発停留所を発車予定",
@@ -394,52 +632,42 @@ def _estimate_bus_position(
             "track_stops": track_stops,
         }
 
-    if rel_min >= -1:
-        prev_stop = upstream_stops[-2]["name"]
-        prev_prev_stop = upstream_stops[-3]["name"] if len(upstream_stops) >= 3 else prev_stop
-        track_stops = _build_track_stops(
-            direction, origin_label, route_no, active_stop_names=[prev_prev_stop, prev_stop]
-        )
-        return {
-            "headline": "まもなく「県立大工学部」に到着します",
-            "subtext": f"1つ前の「{prev_stop}」を通過済み",
-            "progress_percent": 64,
-            "track_stops": track_stops,
-        }
-
-    current_stop = upstream_stops[0]
-    next_stop = upstream_stops[1]
-    current_idx = 0
-    for idx in range(len(upstream_stops) - 1):
-        s_curr = upstream_stops[idx]
-        s_next = upstream_stops[idx + 1]
-        if s_curr["offset_min"] <= rel_min <= s_next["offset_min"]:
-            current_stop = s_curr
-            next_stop = s_next
-            current_idx = idx
+    # 上流 + 県立大工学部(0分) の区間内で連続2駅を特定
+    approach_points = upstream + [{"name": "県立大工学部", "offset_min": 0}]
+    curr_idx = 0
+    for i in range(len(approach_points) - 1):
+        if approach_points[i]["offset_min"] <= rel_min <= approach_points[i + 1]["offset_min"]:
+            curr_idx = i
             break
+        if rel_min > approach_points[i + 1]["offset_min"]:
+            curr_idx = i
 
-    stops_away = max(1, (len(upstream_stops) - 1) - current_idx)
-    ratio = (rel_min - current_stop["offset_min"]) / max(1, next_stop["offset_min"] - current_stop["offset_min"])
-    prog = int(current_stop["percent"] + ratio * (next_stop["percent"] - current_stop["percent"]))
-    prog = max(4, min(66, prog))
+    curr_p = approach_points[curr_idx]
+    next_p = approach_points[curr_idx + 1]
+    seg_span = max(1, next_p["offset_min"] - curr_p["offset_min"])
+    ratio = (rel_min - curr_p["offset_min"]) / seg_span
+    ratio = max(0.15, min(0.85, ratio))
 
-    c_name = current_stop["name"]
-    n_name = next_stop["name"]
-    # 走行区間の前後2駅を表示（始発〜1駅目の間なら次の2駅まで表示）
-    active_names = [c_name, n_name]
-    if current_idx == 0 and len(upstream_stops) >= 3:
-        active_names = [upstream_stops[1]["name"], upstream_stops[2]["name"]]
-    elif n_name == "県立大工学部" and current_idx >= 1:
-        active_names = [upstream_stops[current_idx - 1]["name"], c_name]
+    track_stops, bus_pct = _layout_focus_track(
+        stop_names=all_stop_names,
+        boarding_idx=boarding_idx,
+        focus_idx=curr_idx,
+        bus_ratio_in_seg=ratio,
+    )
 
-    track_stops = _build_track_stops(direction, origin_label, route_no, active_stop_names=active_names)
-    delay_badge = f"（遅れ+{delay_minutes}分反映）" if delay_minutes > 0 else "（定刻走行中）"
+    stops_away = max(1, (len(approach_points) - 1) - curr_idx)
+    if rel_min >= -1:
+        headline = "まもなく「県立大工学部」に到着します"
+        subtext = f"1つ前の「{approach_points[-2]['name']}」を通過済み"
+    else:
+        delay_badge = f"（遅れ+{delay_minutes}分反映）" if delay_minutes > 0 else "（定刻走行中）"
+        headline = f"「{curr_p['name']}」〜「{next_p['name']}」付近を走行中"
+        subtext = f"県立大工学部まで あと{stops_away}区間・約{minutes_until_departure}分 {delay_badge}"
 
     return {
-        "headline": f"「{c_name}」〜「{n_name}」付近を走行中",
-        "subtext": f"県立大工学部まで あと{stops_away}区間・約{minutes_until_departure}分 {delay_badge}",
-        "progress_percent": prog,
+        "headline": headline,
+        "subtext": subtext,
+        "progress_percent": bus_pct,
         "track_stops": track_stops,
     }
 
@@ -450,6 +678,8 @@ def build_bus_status_payload(
     override_day_type: Optional[str] = None,
 ) -> Dict[str, Any]:
     now_dt = datetime.datetime.now(JST)
+    # 1日1回のバックグラウンド時刻表確認（非同期のため処理待ちゼロ）
+    TIMETABLE_UPDATER.ensure_daily_check_async(now_dt)
 
     if override_time and re.match(r"^\d{1,2}:\d{2}$", override_time):
         hh, mm = map(int, override_time.split(":"))
@@ -463,16 +693,19 @@ def build_bus_status_payload(
     direction_key = "to_univ" if direction == "to_univ" else "to_station"
     schedule_list = TIMETABLE_DB[direction_key][day_type]
 
-    live_client = ShinkiNaviLiveClient(timeout=2.8)
+    live_client = ShinkiNaviLiveClient(timeout=2.6)
     live_res = live_client.fetch_live_direction(direction_key, now_dt)
     live_map = live_res.get("live_items_by_time", {})
 
     now_minutes = now_dt.hour * 60 + now_dt.minute
+    now_minutes_float = now_minutes + (now_dt.second / 60.0)
     enriched_upcoming: List[Dict[str, Any]] = []
+    in_transit_buses: List[Dict[str, Any]] = []
 
     for item in schedule_list:
         t_parts = list(map(int, item["time"].split(":")))
         sched_min = t_parts[0] * 60 + t_parts[1]
+        ride_min = int(item.get("ride_minutes", 27))
 
         live_info = live_map.get(item["time"])
         if live_info:
@@ -486,8 +719,6 @@ def build_bus_status_payload(
 
         expected_min = sched_min + delay_min
         minutes_until = expected_min - now_minutes
-        if minutes_until < 0:
-            continue
 
         exp_h = (expected_min // 60) % 24
         exp_m = expected_min % 60
@@ -495,7 +726,41 @@ def build_bus_status_payload(
 
         arr_parts = list(map(int, item["arrival_time"].split(":")))
         arr_min = arr_parts[0] * 60 + arr_parts[1] + delay_min
+        if arr_min < expected_min:
+            arr_min += 24 * 60
         expected_arrival_str = f"{(arr_min // 60) % 24:02d}:{arr_min % 60:02d}"
+        minutes_until_arrival = arr_min - now_minutes
+
+        # すでに出発したが、まだ目的地に到着していない走行中バス (乗車中モード用)
+        if minutes_until < 0 and minutes_until_arrival > 0:
+            elapsed_float = max(0.0, now_minutes_float - expected_min)
+            pos_info = _estimate_in_transit_position(
+                direction=direction_key,
+                elapsed_since_boarding=elapsed_float,
+                ride_minutes=ride_min,
+                delay_minutes=delay_min,
+                origin_label=item.get("origin", ""),
+                route_no=item.get("route_no", ""),
+                expected_arrival_str=expected_arrival_str,
+                gps_station_name=gps_station,
+            )
+            in_transit_buses.append({
+                **item,
+                "bus_state": "in_transit",
+                "scheduled_time": item["time"],
+                "expected_time": expected_time_str,
+                "expected_arrival_time": expected_arrival_str,
+                "minutes_until": minutes_until,
+                "departed_minutes_ago": abs(minutes_until),
+                "minutes_until_arrival": minutes_until_arrival,
+                "delay_minutes": delay_min,
+                "status_text": status_text,
+                "location": pos_info,
+            })
+            continue
+
+        if minutes_until < 0:
+            continue
 
         pos_info = _estimate_bus_position(
             direction=direction_key,
@@ -508,10 +773,12 @@ def build_bus_status_payload(
 
         enriched_upcoming.append({
             **item,
+            "bus_state": "upcoming",
             "scheduled_time": item["time"],
             "expected_time": expected_time_str,
             "expected_arrival_time": expected_arrival_str,
             "minutes_until": minutes_until,
+            "minutes_until_arrival": minutes_until_arrival,
             "delay_minutes": delay_min,
             "status_text": status_text,
             "location": pos_info,
@@ -526,16 +793,19 @@ def build_bus_status_payload(
             minutes_until = sched_min - now_minutes
             enriched_upcoming.append({
                 **item,
+                "bus_state": "upcoming",
                 "scheduled_time": item["time"],
                 "expected_time": item["time"],
                 "expected_arrival_time": item["arrival_time"],
                 "minutes_until": minutes_until,
+                "minutes_until_arrival": minutes_until + int(item.get("ride_minutes", 27)),
                 "delay_minutes": 0,
                 "status_text": "翌朝始発予定",
                 "location": {
                     "headline": "本日の運行終了（翌朝始発待機）",
                     "subtext": f"翌朝 {item['time']} 発の始発便です",
                     "progress_percent": 0,
+                    "track_stops": _build_track_stops(direction_key, item.get("origin", ""), item.get("route_no", "")),
                 },
             })
 
@@ -565,9 +835,11 @@ def build_bus_status_payload(
             "mode": live_res.get("source", "timetable_fallback"),
             "label": "神姫バスNavi 連携中" if live_res.get("ok") else "時刻表・位置推定モード",
             "live_connected": bool(live_res.get("ok")),
+            "timetable_sync": TIMETABLE_UPDATER.last_sync_status,
         },
         "header": header_info,
         "next_bus": enriched_upcoming[0] if enriched_upcoming else None,
+        "in_transit_buses": in_transit_buses,
         "upcoming_buses": enriched_upcoming[:5],
     }
 
@@ -578,6 +850,7 @@ def build_full_timetable_payload(direction: str = "to_station") -> Dict[str, Any
         "direction": direction_key,
         "weekday": TIMETABLE_DB[direction_key]["weekday"],
         "weekend": TIMETABLE_DB[direction_key]["weekend"],
+        "sync_status": TIMETABLE_UPDATER.last_sync_status,
     }
 
 
@@ -661,7 +934,9 @@ class ShinkiBusHTTPRequestHandler(BaseHTTPRequestHandler):
         self.send_error(404, "Not Found")
 
 
-def run_server(host: str = "127.0.0.1", port: int = 8050) -> None:
+def run_server(host: str = "0.0.0.0", port: int = 8050) -> None:
+    # 起動時にバックグラウンドで1日1回の公式時刻表チェックを開始
+    TIMETABLE_UPDATER.ensure_daily_check_async(datetime.datetime.now(JST))
     server = ThreadingHTTPServer((host, port), ShinkiBusHTTPRequestHandler)
     print(f"Server started at http://{host}:{port}/")
     sys.stdout.flush()

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-神姫バス 公式時刻表データ (2026年11月14日改正基準)
+神姫バス 公式時刻表データ (https://navi.shinkibus.jp/jikoku/timetable 準拠)
 対象区間:
   1. 県立大工学部前 (神姫バス停留所名:「県立大工学部」tcode=20240, pcode=2)
      → 姫路駅（北口）(tcode=20000)
@@ -27,50 +27,68 @@ BUS_STOPS_META: Dict[str, Dict[str, Any]] = {
     },
 }
 
-# 往路（県立大工学部前 → 姫路駅北口）の走行停留所プロファイル（神姫バスNavi 41/42/43/45系統準拠）
-# offset_min は「県立大工学部」発車時刻を 0 とした相対分数
-ROUTE_STOPS_TO_STATION: List[Dict[str, Any]] = [
-    {"name": "緑台 / 山崎 / バーズタウン（始発）", "offset_min": -10, "zone": "upstream"},
-    {"name": "打越", "offset_min": -6, "zone": "upstream"},
-    {"name": "六角", "offset_min": -5, "zone": "upstream"},
-    {"name": "床坂菅生台", "offset_min": -3, "zone": "upstream"},
-    {"name": "書写台１丁目", "offset_min": -1, "zone": "upstream"},
-    {"name": "県立大工学部", "offset_min": 0, "zone": "boarding", "tcode": "20240"},
-    {"name": "西坂・西坂口", "offset_min": 1, "zone": "enroute"},
-    {"name": "東洋大学姫路高校", "offset_min": 2, "zone": "enroute"},
-    {"name": "書写東坂・書写郵便局前", "offset_min": 4, "zone": "enroute"},
-    {"name": "横関", "offset_min": 5, "zone": "enroute"},
-    {"name": "御立（北口・御立・南口）", "offset_min": 6, "zone": "enroute"},
-    {"name": "四軒屋・田寺", "offset_min": 8, "zone": "enroute"},
-    {"name": "田寺南口・辻井", "offset_min": 11, "zone": "enroute"},
-    {"name": "名古山北口・東辻井", "offset_min": 13, "zone": "enroute"},
-    {"name": "岩端（北口・岩端・南口）", "offset_min": 16, "zone": "enroute"},
-    {"name": "龍野町・船場元町", "offset_min": 19, "zone": "enroute"},
-    {"name": "白鷺橋", "offset_min": 22, "zone": "enroute", "tcode": "20032"},
-    {"name": "大手前通り", "offset_min": 24, "zone": "enroute", "tcode": "20001"},
-    {"name": "姫路駅（北口）", "offset_min": 30, "zone": "terminal", "tcode": "20000"},
+# 往路（県立大工学部 → 姫路駅(北口)）25停留所（神姫バスNavi 41/42/43/45系統 実停留所順）
+INBOUND_TO_STATION_STOPS: List[Dict[str, Any]] = [
+    {"name": "県立大工学部", "offset_min": 0},
+    {"name": "西坂", "offset_min": 1},
+    {"name": "西坂口", "offset_min": 1},
+    {"name": "東洋大姫路高校", "offset_min": 2},
+    {"name": "書写東坂", "offset_min": 3},
+    {"name": "書写郵便局前", "offset_min": 4},
+    {"name": "横関", "offset_min": 5},
+    {"name": "御立北口", "offset_min": 6},
+    {"name": "御立", "offset_min": 6},
+    {"name": "御立南口", "offset_min": 7},
+    {"name": "四軒屋", "offset_min": 8},
+    {"name": "田寺", "offset_min": 9},
+    {"name": "田寺南口", "offset_min": 10},
+    {"name": "辻井", "offset_min": 11},
+    {"name": "辻井南口", "offset_min": 12},
+    {"name": "名古山北口", "offset_min": 13},
+    {"name": "東辻井", "offset_min": 14},
+    {"name": "岩端北口", "offset_min": 16},
+    {"name": "岩端", "offset_min": 17},
+    {"name": "岩端南口", "offset_min": 18},
+    {"name": "龍野町", "offset_min": 19},
+    {"name": "船場元町", "offset_min": 21},
+    {"name": "白鷺橋", "offset_min": 22},
+    {"name": "大手前通り", "offset_min": 24},
+    {"name": "姫路駅(北口)", "offset_min": 27},
 ]
 
-# 復路（姫路駅北口 18番のりば → 県立大工学部前）の走行停留所プロファイル（神姫バスNavi 41/42/43/45系統準拠）
-ROUTE_STOPS_TO_UNIV: List[Dict[str, Any]] = [
-    {"name": "姫路駅（北口 18番のりば）", "offset_min": 0, "zone": "boarding", "tcode": "20000"},
-    {"name": "大手前通り", "offset_min": 2, "zone": "enroute", "tcode": "20001"},
-    {"name": "姫路城大手門前（西方面）", "offset_min": 3, "zone": "enroute", "tcode": "20157"},
-    {"name": "好古園前・市之橋・文学館前", "offset_min": 5, "zone": "enroute"},
-    {"name": "岡町・岩端北口", "offset_min": 8, "zone": "enroute"},
-    {"name": "東辻井・名古山北口", "offset_min": 10, "zone": "enroute"},
-    {"name": "辻井（南口・辻井）", "offset_min": 12, "zone": "enroute"},
-    {"name": "田寺（南口・田寺）", "offset_min": 14, "zone": "enroute"},
-    {"name": "四軒屋・御立", "offset_min": 18, "zone": "enroute"},
-    {"name": "横関", "offset_min": 20, "zone": "enroute"},
-    {"name": "書写郵便局前・書写東坂", "offset_min": 22, "zone": "enroute"},
-    {"name": "東洋大学姫路高校", "offset_min": 23, "zone": "enroute"},
-    {"name": "西坂口・西坂", "offset_min": 25, "zone": "enroute"},
-    {"name": "県立大工学部", "offset_min": 26, "zone": "arrival", "tcode": "20240"},
+# 復路（姫路駅(北口) 18番のりば → 県立大工学部）24停留所（神姫バスNavi 41/42/43/45系統 実停留所順）
+OUTBOUND_TO_UNIV_STOPS: List[Dict[str, Any]] = [
+    {"name": "姫路駅(北口)", "offset_min": 0},
+    {"name": "大手前通り", "offset_min": 2},
+    {"name": "姫路城大手門前", "offset_min": 3},
+    {"name": "好古園前", "offset_min": 4},
+    {"name": "市之橋・文学館前", "offset_min": 5},
+    {"name": "岡町", "offset_min": 7},
+    {"name": "岩端北口", "offset_min": 8},
+    {"name": "東辻井", "offset_min": 9},
+    {"name": "名古山北口", "offset_min": 10},
+    {"name": "辻井南口", "offset_min": 11},
+    {"name": "辻井", "offset_min": 12},
+    {"name": "田寺南口", "offset_min": 13},
+    {"name": "田寺", "offset_min": 14},
+    {"name": "四軒屋", "offset_min": 16},
+    {"name": "御立南口", "offset_min": 17},
+    {"name": "御立", "offset_min": 18},
+    {"name": "御立北口", "offset_min": 19},
+    {"name": "横関", "offset_min": 20},
+    {"name": "書写郵便局前", "offset_min": 21},
+    {"name": "書写東坂", "offset_min": 22},
+    {"name": "東洋大姫路高校", "offset_min": 23},
+    {"name": "西坂口", "offset_min": 24},
+    {"name": "西坂", "offset_min": 25},
+    {"name": "県立大工学部", "offset_min": 26},
 ]
 
+ROUTE_STOPS_TO_STATION = INBOUND_TO_STATION_STOPS
+ROUTE_STOPS_TO_UNIV = OUTBOUND_TO_UNIV_STOPS
 
-def _expand_to_station_entries(raw_hours: Dict[int, List[str]]) -> List[Dict[str, Any]]:
+
+def expand_to_station_entries(raw_hours: Dict[int, List[str]]) -> List[Dict[str, Any]]:
     """
     県立大工学部 (20240-2) → 姫路駅（北口）(20000) の時刻表定義を展開する
     """
@@ -124,188 +142,246 @@ def _expand_to_station_entries(raw_hours: Dict[int, List[str]]) -> List[Dict[str
     return results
 
 
-# 県立大工学部 (20240, pcode=2) → 姫路駅(北口) 平日
+# 県立大工学部 (20240, pcode=2) → 姫路駅(北口) 公式平日ダイヤ
 TO_STATION_WEEKDAY_RAW: Dict[int, List[str]] = {
-    6: ["38", "山50"],
-    7: ["11", "21", "山31", "41", "山46", "51"],
-    8: ["緑01", "06", "10", "山14", "バ18", "22", "緑26", "山37", "47"],
-    9: ["03", "12", "山19", "31", "41", "54"],
-    10: ["バ02", "05", "15", "緑30", "40", "バ50"],
-    11: ["05", "緑10", "20", "35", "50"],
-    12: ["バ00", "10", "緑20", "35", "バ50"],
-    13: ["05", "直▲15", "緑20", "25", "35", "バ50"],
-    14: ["姫00", "05", "緑20", "35", "山50"],
-    15: ["05", "緑20", "直▲33", "35", "45", "バ50"],
-    16: ["05", "緑20", "35", "55"],
-    17: ["05", "10", "緑14", "直▲18", "25", "バ31", "40", "山52"],
-    18: ["姫00", "緑12", "24", "36", "45", "バ54", "55", "58"],
-    19: ["山01", "05", "10", "緑20", "32", "44", "姫57"],
-    20: ["山11", "25", "45"],
+    5: ["38", "山50"],
+    6: ["11", "21", "山31", "41", "山46", "51"],
+    7: ["緑01", "06", "10", "山14", "バ18", "22", "緑26", "山37", "47"],
+    8: ["03", "12", "山19", "31", "41", "54"],
+    9: ["バ02", "05", "15", "緑30", "40", "バ50"],
+    10: ["05", "緑10", "20", "35", "50"],
+    11: ["バ00", "10", "緑20", "35", "バ50"],
+    12: ["05", "直▲15", "緑20", "25", "35", "バ50"],
+    13: ["姫00", "05", "緑20", "35", "山50"],
+    14: ["05", "緑20", "直▲33", "35", "45", "バ50"],
+    15: ["05", "緑20", "35", "55"],
+    16: ["05", "10", "緑14", "直▲18", "25", "バ31", "40", "山52"],
+    17: ["姫00", "緑12", "24", "36", "45", "バ54", "55", "58"],
+    18: ["山01", "05", "10", "緑20", "32", "44", "姫57"],
+    19: ["山11", "25", "45"],
+    20: ["10", "緑20", "40"],
     21: ["10", "緑20", "40"],
-    22: ["10", "緑20", "40"],
-    23: ["05", "30", "44"],
+    22: ["05", "30", "44"],
 }
 
-# 県立大工学部 (20240, pcode=2) → 姫路駅(北口) 土日祝
+# 県立大工学部 (20240, pcode=2) → 姫路駅(北口) 公式土日祝ダイヤ
 TO_STATION_WEEKEND_RAW: Dict[int, List[str]] = {
-    7: ["山01", "16", "山31", "緑55"],
-    8: ["05", "バ15", "25", "山35", "45", "55"],
-    9: ["山05", "15", "25", "40"],
-    10: ["00", "バ15", "30", "緑45"],
-    11: ["05", "25", "緑45"],
-    12: ["05", "バ15", "緑25", "35", "バ50"],
-    13: ["05", "緑20", "35", "バ50"],
-    14: ["05", "緑20", "35", "山50"],
+    6: ["山01", "16", "山31", "緑55"],
+    7: ["05", "バ15", "25", "山35", "45", "55"],
+    8: ["山05", "15", "25", "40"],
+    9: ["00", "バ15", "30", "緑45"],
+    10: ["05", "25", "緑45"],
+    11: ["05", "バ15", "緑25", "35", "バ50"],
+    12: ["05", "緑20", "35", "バ50"],
+    13: ["05", "緑20", "35", "山50"],
+    14: ["05", "緑20", "35", "バ50"],
     15: ["05", "緑20", "35", "バ50"],
-    16: ["05", "緑20", "35", "バ50"],
-    17: ["05", "緑20", "35", "山50"],
-    18: ["05", "緑20", "35", "バ50"],
-    19: ["05", "緑20", "35", "バ55"],
-    20: ["16", "42"],
-    21: ["07", "緑18", "35"],
-    22: ["06", "49"],
+    16: ["05", "緑20", "35", "山50"],
+    17: ["05", "緑20", "35", "バ50"],
+    18: ["05", "緑20", "35", "バ55"],
+    19: ["16", "42"],
+    20: ["07", "緑18", "35"],
+    21: ["06", "49"],
 }
 
 
-def _expand_from_station_entries(
-    otemon_raw: Dict[int, List[str]], direct_express: List[str]
+def expand_from_station_entries(
+    by_route_hours: Dict[str, Dict[int, List[str]]]
 ) -> List[Dict[str, Any]]:
     """
-    姫路駅（北口 18番のりば 20000-18）→ 県立大工学部方面の時刻表を生成する
-    （姫路駅北口18番のりば発車時刻は姫路城大手門前の3分前＋平日直行便）
+    姫路駅（北口 18番のりば 20000-18）→ 県立大工学部方面の公式時刻表を展開する
     """
     entries: List[Dict[str, Any]] = []
+    for route_key, hours_dict in by_route_hours.items():
+        for hour, tokens in hours_dict.items():
+            for token in tokens:
+                prefix = "".join(c for c in token if not c.isdigit())
+                minute = int("".join(c for c in token if c.isdigit()))
+                sta_total = hour * 60 + minute
+                time_str = f"{hour:02d}:{minute:02d}"
 
-    for hour in sorted(otemon_raw.keys()):
-        for item in otemon_raw[hour]:
-            route_part, min_part = item.split(":")
-            prefix = "".join(c for c in min_part if not c.isdigit())
-            otemon_min = int("".join(c for c in min_part if c.isdigit()))
-
-            # 姫路駅（北口）発は 3分前
-            sta_total = hour * 60 + otemon_min - 3
-            sta_h = sta_total // 60
-            sta_m = sta_total % 60
-            time_str = f"{sta_h:02d}:{sta_m:02d}"
-            ride_min = 26
-
-            if route_part == "45":
-                route_no = "45"
-                if "工" in prefix:
-                    dest = "県立大工学部"
-                elif "横" in prefix:
-                    dest = "横関（県立大工学部経由）"
+                if route_key == "直行":
+                    route_no = "直行"
+                    dest = "県立大工学部（直行）"
+                    ride_min = 22
+                    note = "休講日運休" if "▲" in prefix else ""
+                elif route_key == "45":
+                    route_no = "45"
+                    ride_min = 26
+                    note = ""
+                    if "工" in prefix:
+                        dest = "県立大工学部"
+                    elif "横" in prefix:
+                        dest = "横関（県立大工学部経由）"
+                    else:
+                        dest = "書写西住宅（県立大工学部経由）"
+                elif route_key == "43":
+                    route_no = "43"
+                    dest = "緑台（県立大工学部経由）"
+                    ride_min = 26
+                    note = ""
                 else:
-                    dest = "書写西住宅（県立大工学部経由）"
-            elif route_part == "43":
-                route_no = "43"
-                dest = "緑台（県立大工学部経由）"
-            else:
-                if "山" in prefix or "◆" in prefix:
-                    route_no = "42"
-                    dest = "山崎（県立大工学部経由）"
-                elif "古" in prefix:
-                    route_no = "41"
-                    dest = "古瀬畑（県立大工学部経由）"
-                elif "荒" in prefix:
-                    route_no = "41"
-                    dest = "荒木（県立大工学部経由）"
-                else:
-                    route_no = "41"
-                    dest = "バーズタウン（県立大工学部経由）"
+                    ride_min = 26
+                    note = ""
+                    if "山" in prefix or "◆" in prefix:
+                        route_no = "42"
+                        dest = "山崎（県立大工学部経由）"
+                    elif "古" in prefix:
+                        route_no = "41"
+                        dest = "古瀬畑（県立大工学部経由）"
+                    elif "荒" in prefix:
+                        route_no = "41"
+                        dest = "荒木（県立大工学部経由）"
+                    else:
+                        route_no = "41"
+                        dest = "バーズタウン（県立大工学部経由）"
 
-            arr_total = sta_total + ride_min
-            arr_h = (arr_total // 60) % 24
-            arr_m = arr_total % 60
+                arr_total = sta_total + ride_min
+                entries.append({
+                    "_sort_key": sta_total,
+                    "time": time_str,
+                    "arrival_time": f"{(arr_total // 60) % 24:02d}:{arr_total % 60:02d}",
+                    "route_no": route_no,
+                    "destination": dest,
+                    "origin": "姫路駅（北口 18番のりば）始発",
+                    "fare": 420,
+                    "ride_minutes": ride_min,
+                    "note": note,
+                })
 
-            entries.append({
-                "_sort_key": sta_total,
-                "time": time_str,
-                "arrival_time": f"{arr_h:02d}:{arr_m:02d}",
-                "route_no": route_no,
-                "destination": dest,
-                "origin": "姫路駅（北口 18番のりば）始発",
-                "fare": 420,
-                "ride_minutes": ride_min,
-                "note": "",
-            })
-
-    for exp_time in direct_express:
-        hh, mm = map(int, exp_time.split(":"))
-        sta_total = hh * 60 + mm
-        ride_min = 22
-        arr_total = sta_total + ride_min
-        entries.append({
-            "_sort_key": sta_total,
-            "time": f"{hh:02d}:{mm:02d}",
-            "arrival_time": f"{(arr_total // 60) % 24:02d}:{arr_total % 60:02d}",
-            "route_no": "直行",
-            "destination": "県立大工学部（直行）",
-            "origin": "姫路駅（北口 18番のりば）始発",
-            "fare": 420,
-            "ride_minutes": ride_min,
-            "note": "休講日運休",
-        })
-
-    entries.sort(key=lambda x: x["_sort_key"])
+    entries.sort(key=lambda x: (x["_sort_key"], x["route_no"]))
     for e in entries:
         e.pop("_sort_key", None)
     return entries
 
 
-# 姫路城大手門前基準（姫路駅北口は -3分）
-_OTEMON_TO_UNIV_WEEKDAY: Dict[int, List[str]] = {
-    7: ["45:工38", "45:48"],
-    8: ["45:03", "45:18", "45:工33", "41:古48", "45:58"],
-    9: ["43:08", "45:13", "45:23", "45:28", "43:33", "41:荒43", "45:58"],
-    10: ["43:13", "45:28", "41:バ43", "45:58"],
-    11: ["45:03", "43:13", "45:28", "41:荒43", "45:58"],
-    12: ["43:13", "45:28", "41:荒43", "45:58"],
-    13: ["43:13", "41:荒18", "45:28", "42:山43", "45:58"],
-    14: ["43:13", "45:28", "41:荒43", "45:58"],
-    15: ["43:13", "45:28", "42:山43", "45:58"],
-    16: ["43:13", "45:28", "45:工43", "42:山48", "45:58"],
-    17: ["43:13", "45:33", "41:荒48", "45:58"],
-    18: ["43:13", "45:工28", "45:43", "42:◆48", "45:58"],
-    19: ["43:18", "45:28", "41:バ48", "45:58"],
-    20: ["43:18", "45:28", "42:山48", "45:58"],
-    21: ["43:18", "45:33", "42:山48", "45:58"],
-    22: ["43:18", "45:33", "41:荒48", "45:58"],
-    23: ["45:工18", "42:山33", "45:48"],
-    24: ["45:工03", "45:工18"],
+# 姫路駅（北口 18番のりば 20000-18）公式平日ダイヤ
+FROM_STATION_WEEKDAY_RAW: Dict[str, Dict[int, List[str]]] = {
+    "45": {
+        6: ["工35", "45"],
+        7: ["00", "15", "工30", "55"],
+        8: ["10", "20", "25", "55"],
+        9: ["25", "55"],
+        10: ["00", "25", "55"],
+        11: ["25", "55"],
+        12: ["25", "55"],
+        13: ["25", "55"],
+        14: ["25", "55"],
+        15: ["25", "工40", "55"],
+        16: ["30", "55"],
+        17: ["工25", "40", "55"],
+        18: ["25", "55"],
+        19: ["25", "55"],
+        20: ["30", "55"],
+        21: ["30", "55"],
+        22: ["工15", "45"],
+        23: ["工00", "15"],
+    },
+    "43": {
+        8: ["05", "30"],
+        9: ["10"],
+        10: ["10"],
+        11: ["10"],
+        12: ["10"],
+        13: ["10"],
+        14: ["10"],
+        15: ["10"],
+        16: ["10"],
+        17: ["10"],
+        18: ["15"],
+        19: ["15"],
+        20: ["15"],
+        21: ["15"],
+    },
+    "41_42": {
+        7: ["古45"],
+        8: ["荒40"],
+        9: ["バ40"],
+        10: ["荒40"],
+        11: ["荒40"],
+        12: ["荒15", "山40"],
+        13: ["荒40"],
+        14: ["山40"],
+        15: ["山45"],
+        16: ["荒45"],
+        17: ["◆45"],
+        18: ["バ45"],
+        19: ["山45"],
+        20: ["山45"],
+        21: ["荒45"],
+        22: ["山30"],
+    },
+    "直行": {
+        8: ["▲05", "▲10", "▲15", "▲20", "▲25", "▲30"],
+        9: ["▲50"],
+        10: ["▲00", "▲05"],
+        11: ["▲45"],
+        12: ["▲25"],
+        15: ["▲40"],
+    },
 }
 
-_DIRECT_EXPRESS_WEEKDAY: List[str] = [
-    "10:05", "10:10", "10:15", "10:20", "10:25", "10:30",
-    "11:50", "12:00", "12:05", "13:45", "14:25", "17:40",
-]
-
-_OTEMON_TO_UNIV_WEEKEND: Dict[int, List[str]] = {
-    8: ["45:08", "45:18", "43:28", "45:38", "45:48"],
-    9: ["45:13", "43:23", "43:33", "45:53"],
-    10: ["43:13", "45:28", "45:48", "41:バ58"],
-    11: ["43:13", "45:28", "41:荒43", "45:58"],
-    12: ["43:13", "45:28", "41:荒43", "45:58"],
-    13: ["43:13", "45:28", "42:山43", "45:58"],
-    14: ["43:13", "45:28", "41:荒43", "45:58"],
-    15: ["43:13", "45:28", "42:山43", "45:58"],
-    16: ["43:13", "45:28", "42:山43", "45:58"],
-    17: ["43:13", "45:28", "41:荒43", "45:58"],
-    18: ["43:18", "45:28", "41:荒48", "45:58"],
-    19: ["43:18", "45:33", "41:バ48"],
-    20: ["45:03", "43:18", "45:33", "42:山48"],
-    21: ["45:03", "43:18", "45:33", "42:山48"],
-    22: ["45:18", "43:33", "45:48"],
-    23: ["45:工18", "42:山38", "45:横58"],
+# 姫路駅（北口 18番のりば 20000-18）公式土日祝ダイヤ
+FROM_STATION_WEEKEND_RAW: Dict[str, Dict[int, List[str]]] = {
+    "45": {
+        7: ["05", "15", "35", "45"],
+        8: ["10", "50"],
+        9: ["25", "45"],
+        10: ["25", "55"],
+        11: ["25", "55"],
+        12: ["25", "55"],
+        13: ["25", "55"],
+        14: ["25", "55"],
+        15: ["25", "55"],
+        16: ["25", "55"],
+        17: ["25", "55"],
+        18: ["30"],
+        19: ["00", "30"],
+        20: ["00", "30"],
+        21: ["15", "45"],
+        22: ["工15", "横55"],
+    },
+    "43": {
+        7: ["25"],
+        8: ["20", "30"],
+        9: ["10"],
+        10: ["10"],
+        11: ["10"],
+        12: ["10"],
+        13: ["10"],
+        14: ["10"],
+        15: ["10"],
+        16: ["10"],
+        17: ["15"],
+        18: ["15"],
+        19: ["15"],
+        20: ["15"],
+        21: ["30"],
+    },
+    "41_42": {
+        9: ["バ55"],
+        10: ["荒40"],
+        11: ["荒40"],
+        12: ["山40"],
+        13: ["荒40"],
+        14: ["山40"],
+        15: ["山40"],
+        16: ["荒40"],
+        17: ["荒45"],
+        18: ["バ45"],
+        19: ["山45"],
+        20: ["山45"],
+        22: ["山35"],
+    },
 }
 
 TIMETABLE_DB: Dict[str, Dict[str, List[Dict[str, Any]]]] = {
     "to_station": {
-        "weekday": _expand_to_station_entries(TO_STATION_WEEKDAY_RAW),
-        "weekend": _expand_to_station_entries(TO_STATION_WEEKEND_RAW),
+        "weekday": expand_to_station_entries(TO_STATION_WEEKDAY_RAW),
+        "weekend": expand_to_station_entries(TO_STATION_WEEKEND_RAW),
     },
     "to_univ": {
-        "weekday": _expand_from_station_entries(_OTEMON_TO_UNIV_WEEKDAY, _DIRECT_EXPRESS_WEEKDAY),
-        "weekend": _expand_from_station_entries(_OTEMON_TO_UNIV_WEEKEND, []),
+        "weekday": expand_from_station_entries(FROM_STATION_WEEKDAY_RAW),
+        "weekend": expand_from_station_entries(FROM_STATION_WEEKEND_RAW),
     },
 }

@@ -107,8 +107,44 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 16px;
+  padding: 11px 15px 15px;
   margin-bottom: 14px;
+}
+
+/* Mode Switch Bar (乗車前 ⇔ 乗車中・出発済) */
+.mode-switch-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px;
+  margin-bottom: 10px;
+}
+
+.mode-switch-bar.hidden {
+  display: none;
+}
+
+.mode-pill {
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+}
+
+.mode-pill.active {
+  background: var(--surface-sub);
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 
 .main-card-header {
@@ -116,7 +152,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .route-title {
@@ -142,6 +178,50 @@ body {
   color: var(--text-sub);
 }
 
+.header-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pin-btn {
+  background: var(--bg);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pin-btn.pinned {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: var(--accent);
+  color: #60a5fa;
+}
+
+.pin-btn.hidden {
+  display: none;
+}
+
+.show-more-btn {
+  width: 100%;
+  background: var(--bg);
+  color: var(--text-sub);
+  border: 1px dashed var(--border);
+  border-radius: 7px;
+  padding: 8px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+
+.show-more-btn:hover {
+  border-color: var(--text-muted);
+}
+
 .status-tag {
   font-size: 0.75rem;
   font-weight: 600;
@@ -149,6 +229,11 @@ body {
   border-radius: 4px;
   background: rgba(34, 197, 94, 0.14);
   color: var(--green);
+}
+
+.status-tag.in-transit {
+  background: rgba(59, 130, 246, 0.16);
+  color: #60a5fa;
 }
 
 .status-tag.delayed {
@@ -222,13 +307,224 @@ body {
   background: var(--surface-sub);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 12px 13px;
+  padding: 12px 10px;
+}
+
+.location-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.location-toggle-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  padding: 2px 4px 2px 0;
+  margin: 0;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: color 0.15s;
+}
+
+.location-toggle-head:hover {
+  color: var(--text);
+}
+
+.location-toggle-head:hover .location-label {
+  color: var(--text);
+}
+
+.location-chevron {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.2s ease, color 0.15s;
+}
+
+.location-toggle-head:hover .location-chevron {
+  color: var(--text);
+}
+
+.location-toggle-head.expanded .location-chevron {
+  transform: rotate(180deg);
+  color: #93c5fd;
 }
 
 .location-label {
   font-size: 0.72rem;
   color: var(--text-muted);
-  margin-bottom: 3px;
+  transition: color 0.15s;
+}
+
+.location-refresh-btn {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 26px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+}
+
+.location-refresh-btn:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
+  background: var(--surface);
+}
+
+.location-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.location-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 縦表示トラック */
+.route-vertical-wrap {
+  margin-top: 6px;
+  cursor: pointer;
+}
+
+.route-vertical-wrap.hidden,
+.route-track-wrap.hidden {
+  display: none;
+}
+
+.v-track-container {
+  position: relative;
+  padding-left: 32px;
+}
+
+.v-track-line {
+  position: absolute;
+  left: 13px;
+  top: 16px;
+  bottom: 16px;
+  width: 3px;
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.v-track-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: height 0.3s ease;
+}
+
+.v-bus-marker {
+  position: absolute;
+  left: 14.5px;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  background: #ffffff;
+  color: #111827;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  z-index: 4;
+}
+
+.v-bus-marker .bus-svg {
+  width: 14px;
+  height: 14px;
+}
+
+.v-stop-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 32px;
+  font-size: 0.78rem;
+}
+
+.v-stop-dot {
+  position: absolute;
+  left: -17.5px;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--surface-sub);
+  border: 2px solid var(--text-muted);
+  z-index: 2;
+}
+
+.v-stop-dot.boarding {
+  width: 11px;
+  height: 11px;
+  border-color: var(--accent);
+  background: #ffffff;
+}
+
+.v-stop-dot.focus-stop {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.v-stop-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-sub);
+  font-size: 0.8rem;
+  font-weight: 600;
+  min-width: 46px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  line-height: 1.15;
+}
+
+.v-time-expected {
+  color: #fbbf24;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.v-time-scheduled-strike {
+  color: #94a3b8;
+  font-size: 0.68rem;
+  font-weight: 500;
+  text-decoration: line-through;
+  opacity: 0.95;
+}
+
+.v-stop-name {
+  color: var(--text);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.v-stop-row.is-boarding .v-stop-name,
+.v-stop-row.is-focus .v-stop-name {
+  font-weight: 700;
+  color: #93c5fd;
 }
 
 .location-main {
@@ -245,7 +541,47 @@ body {
 }
 
 .route-track-wrap {
-  padding: 6px 10px 0;
+  padding: 2px 32px 0;
+  cursor: pointer;
+}
+
+/* 上側: 走行中の2駅 (丸ドットの真上に配置して紐づきを明確化) */
+.stop-top-labels-layer {
+  position: relative;
+  height: 30px;
+  margin-bottom: 8px;
+}
+
+.stop-top-label-item {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.pinned-return-bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(59, 130, 246, 0.14);
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  border-radius: 6px;
+  color: #93c5fd;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+
+.pinned-return-bar.hidden {
+  display: none;
 }
 
 .route-track-bar {
@@ -272,58 +608,57 @@ body {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 8px;
-  height: 8px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--surface);
-  border: 2px solid var(--text-muted);
+  border: 1.5px solid var(--text-muted);
   z-index: 1;
 }
 
+.stop-dot.focus-stop {
+  width: 8px;
+  height: 8px;
+  background: var(--text);
+  border: 2px solid var(--accent);
+  z-index: 2;
+}
+
 .stop-dot.boarding {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   background: var(--accent);
-  border-color: var(--text);
+  border: 2px solid var(--text);
+  z-index: 2;
 }
 
 .bus-marker {
   position: absolute;
   top: 50%;
-  transform: translate(-50%, -108%);
+  transform: translate(-50%, -50%);
   background: var(--text);
   color: var(--bg);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--bg);
   border-radius: 5px;
-  width: 24px;
-  height: 20px;
+  width: 22px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 3;
+  z-index: 4;
   transition: left 0.3s ease;
 }
 
-.bus-marker::after {
-  content: "";
-  position: absolute;
-  bottom: -4px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-top: 4px solid var(--text);
-}
-
 .bus-svg {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   display: block;
 }
 
+/* 下側: 始発・のりば・終着駅 (ドットの真下中央・2行表示対応) */
 .stop-labels-layer {
   position: relative;
-  height: 32px;
+  height: 28px;
   margin-top: 8px;
 }
 
@@ -331,11 +666,17 @@ body {
   position: absolute;
   top: 0;
   transform: translateX(-50%);
-  font-size: 0.62rem;
-  line-height: 1.2;
+  font-size: 0.64rem;
+  font-weight: 500;
+  line-height: 1.25;
   color: var(--text-muted);
   text-align: center;
   white-space: nowrap;
+}
+
+.stop-label-item.boarding {
+  color: var(--text-sub);
+  font-weight: 700;
 }
 
 .stop-label-item.align-left {
@@ -391,6 +732,16 @@ body {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.bus-row.selected {
+  border-color: var(--accent);
+}
+
+.bus-row.in-transit-row {
+  background: rgba(59, 130, 246, 0.06);
 }
 
 .bus-row-top {
@@ -401,7 +752,7 @@ body {
 }
 
 .bus-row-time {
-  font-size: 1.05rem;
+  font-size: 1.02rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -414,10 +765,14 @@ body {
 }
 
 .bus-row-wait {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--text-sub);
   font-variant-numeric: tabular-nums;
+}
+
+.bus-row-wait.in-transit-badge {
+  color: #60a5fa;
 }
 
 .bus-row-mid {
