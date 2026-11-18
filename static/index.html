@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#121417" />
+  <title>神姫バス 接近・時刻表 | 県立大工学部前 ⇔ 姫路駅（北口）</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="container">
+    <!-- シンプルヘッダー -->
+    <header class="header">
+      <div class="header-top">
+        <div>
+          <h1 class="title">神姫バス 接近・時刻表</h1>
+          <div class="meta-line">
+            <span id="dayTypeChip">平日ダイヤ</span>
+            <span>・</span>
+            <span id="liveSourceText">データ取得中</span>
+            <span>・</span>
+            <span><span id="updatedAtText">--:--</span>更新 (<span id="autoCountdown">30</span>s)</span>
+          </div>
+        </div>
+        <button type="button" class="refresh-btn" id="refreshBtn">更新</button>
+      </div>
+    </header>
+
+    <!-- 方向切り替えタブ -->
+    <nav class="tabs" aria-label="運行方向の切り替え">
+      <button
+        type="button"
+        class="tab active"
+        id="tabToStation"
+        data-direction="to_station"
+        aria-selected="true"
+      >
+        県立大工学部前 → 姫路駅(北口)
+      </button>
+      <button
+        type="button"
+        class="tab"
+        id="tabToUniv"
+        data-direction="to_univ"
+        aria-selected="false"
+      >
+        姫路駅(北口) → 県立大工学部前
+      </button>
+    </nav>
+
+    <main>
+      <!-- メイン表示: 次のバス & 現在走行位置 -->
+      <section class="main-card" aria-live="polite">
+        <div class="main-card-header">
+          <div class="route-title">
+            <span class="route-badge" id="heroRouteNo">--系統</span>
+            <span class="route-dest" id="heroRouteName">読み込み中...</span>
+          </div>
+          <span class="status-tag" id="heroDelayPill">定刻</span>
+        </div>
+
+        <div class="countdown-block">
+          <div class="countdown-label">次のバスが来るまで</div>
+          <div class="countdown-value-row">
+            <span class="countdown-prefix" id="countdownPrefix">あと</span>
+            <span class="countdown-num" id="heroMinutesUntil">--</span>
+            <span class="countdown-unit" id="countdownUnit">分</span>
+          </div>
+          <div class="schedule-meta">
+            <span>定刻 <strong id="heroScheduledTime">--:--</strong></span>
+            <span class="sep">/</span>
+            <span id="heroDelayText">遅れ <strong>+0分</strong></span>
+            <span class="sep">/</span>
+            <span>到着 <strong id="heroArrivalTime">--:--</strong></span>
+          </div>
+        </div>
+
+        <div class="location-block">
+          <div class="location-label">現在の走行位置</div>
+          <div class="location-main" id="heroLocationHeadline">取得中...</div>
+          <div class="location-sub" id="heroLocationSubtext"></div>
+          <div class="route-track-wrap">
+            <div class="route-track-bar">
+              <div class="progress-fill" id="heroProgressFill" style="width: 0%;"></div>
+              <div class="stop-dots-layer" id="stopDotsLayer"></div>
+              <div class="bus-marker" id="heroBusPin" style="left: 0%;" title="現在位置">
+                <svg class="bus-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/>
+                </svg>
+              </div>
+            </div>
+            <div class="stop-labels-layer" id="stopLabelsLayer"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 直近5本の時刻表リスト -->
+      <section class="list-section">
+        <div class="list-header">
+          <h2 class="section-heading">直近のバス（5本）</h2>
+          <span class="stop-note" id="boardingStopNote">県立大工学部前（のりば2）発</span>
+        </div>
+        <div class="bus-list" id="upcomingList"></div>
+      </section>
+
+      <!-- 全時刻表 & 公式リンク -->
+      <section class="footer-tools">
+        <button type="button" class="accordion-btn" id="toggleFullTimetableBtn" aria-expanded="false">
+          <span>全時刻表を表示</span>
+          <span id="timetableChevron">▼</span>
+        </button>
+
+        <div class="timetable-panel hidden" id="fullTimetablePanel">
+          <div class="tt-day-tabs">
+            <button type="button" class="tt-day-btn active" id="btnDayWeekday">平日</button>
+            <button type="button" class="tt-day-btn" id="btnDayWeekend">土日祝</button>
+          </div>
+          <div class="tt-rows" id="fullTimetableGrid"></div>
+        </div>
+
+        <div class="links-row">
+          <a href="https://navi.shinkibus.jp/" target="_blank" rel="noopener noreferrer" class="text-link">
+            神姫バスNavi（公式）
+          </a>
+          <a href="https://navi.shinkibus.jp/jikoku/timetable?tcode=20240&pcode=2" target="_blank" rel="noopener noreferrer" class="text-link" id="officialTimetableLink">
+            公式時刻表ページ
+          </a>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
