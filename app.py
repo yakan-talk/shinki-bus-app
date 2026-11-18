@@ -560,13 +560,13 @@ def _estimate_bus_position(
         track_stops, _ = _layout_focus_track(stop_names, boarding_idx=0, focus_idx=None)
         if minutes_until_departure > 5:
             return {
-                "headline": "発車待機中",
+                "headline": "姫路駅(北口) 発車待機中",
                 "subtext": f"当停留所始発便（発車{minutes_until_departure}分前）",
                 "progress_percent": 0,
                 "track_stops": track_stops,
             }
         return {
-            "headline": "乗車案内中",
+            "headline": "姫路駅(北口) 乗車案内中",
             "subtext": "まもなく当停留所から発車します",
             "progress_percent": 2,
             "track_stops": track_stops,
@@ -580,13 +580,13 @@ def _estimate_bus_position(
         track_stops, _ = _layout_focus_track(stop_names, boarding_idx=0, focus_idx=None)
         if minutes_until_departure > 5:
             return {
-                "headline": "発車待機中",
+                "headline": "県立大工学部 発車待機中",
                 "subtext": f"当停留所始発便（発車{minutes_until_departure}分前）",
                 "progress_percent": 0,
                 "track_stops": track_stops,
             }
         return {
-            "headline": "乗車案内中",
+            "headline": "県立大工学部 乗車案内中",
             "subtext": "まもなく当停留所から発車します",
             "progress_percent": 2,
             "track_stops": track_stops,
@@ -813,7 +813,7 @@ def build_bus_status_payload(
         header_info = {
             "direction": "to_station",
             "title": "県立大工学部前 → 姫路駅（北口）",
-            "from_stop": "県立大工学部前（のりば2）",
+            "from_stop": "県立大工学部前",
             "to_stop": "姫路駅（北口）",
             "timetable_url": BUS_STOPS_META["kenritsudai_kogakubu"]["timetable_url"],
         }
@@ -821,7 +821,7 @@ def build_bus_status_payload(
         header_info = {
             "direction": "to_univ",
             "title": "姫路駅（北口） → 県立大工学部前",
-            "from_stop": "姫路駅（北口 18番のりば）",
+            "from_stop": "姫路駅(北口) 18番のりば",
             "to_stop": "県立大工学部前",
             "timetable_url": BUS_STOPS_META["himeji_station"]["timetable_url"],
         }
