@@ -257,6 +257,10 @@ function formatAnchorLabelHtml(s, isInTransit) {
   return text;
 }
 
+function formatDestShort(dest) {
+  return String(dest || "").replace(/（[^）]*経由）/g, "").trim();
+}
+
 function renderMainHeroCard(bus, data) {
   const isInTransit = bus.bus_state === "in_transit";
   const busKey = getBusKey(bus);
@@ -264,7 +268,7 @@ function renderMainHeroCard(bus, data) {
   const destShort = state.direction === "to_station" ? "姫路駅(北口)" : "県立大工学部前";
 
   els.heroRouteNo.textContent = formatRouteLabel(bus.route_no);
-  els.heroRouteName.textContent = `${bus.destination}行`;
+  els.heroRouteName.textContent = `${formatDestShort(bus.destination)}行`;
 
   // ピン留めボタン表示（出発済バスまたは選択中バスを到着までピン留め）
   els.pinToggleBtn.classList.remove("hidden");
@@ -274,31 +278,31 @@ function renderMainHeroCard(bus, data) {
   const delayMin = Number(bus.delay_minutes || 0);
   if (isInTransit) {
     if (delayMin > 0) {
-      els.heroDelayPill.textContent = `走行中 (遅れ +${delayMin}分)`;
+      els.heroDelayPill.textContent = `遅れ +${delayMin}分`;
       els.heroDelayPill.className = "status-tag delayed";
       els.heroDelayText.innerHTML = `遅れ <strong>+${delayMin}分</strong>`;
     } else {
-      els.heroDelayPill.textContent = "乗車中・走行中";
+      els.heroDelayPill.textContent = "走行中";
       els.heroDelayPill.className = "status-tag in-transit";
       els.heroDelayText.innerHTML = `遅れ <strong>+0分</strong>`;
     }
-    els.countdownLabel.textContent = `目的地（${destShort}）到着まで`;
+    els.countdownLabel.textContent = `${destShort} 到着まで`;
     els.countdownPrefix.textContent = "あと";
     els.heroMinutesUntil.textContent = String(Math.max(1, Number(bus.minutes_until_arrival ?? 1)));
     els.countdownUnit.textContent = "分";
-    els.heroSchedLabel.innerHTML = `発車 <strong>${bus.scheduled_time}</strong>済`;
-    els.locationBlockLabel.textContent = "現在の走行位置（目的地までの経路）";
+    els.heroSchedLabel.innerHTML = `発車 <strong>${bus.scheduled_time}</strong>`;
+    els.locationBlockLabel.textContent = "現在の走行位置";
   } else {
     if (delayMin > 0) {
       els.heroDelayPill.textContent = `遅れ +${delayMin}分`;
       els.heroDelayPill.className = "status-tag delayed";
-      els.heroDelayText.innerHTML = `遅れ <strong>+${delayMin}分</strong> (見込 ${bus.expected_time})`;
+      els.heroDelayText.innerHTML = `遅れ <strong>+${delayMin}分</strong>`;
     } else {
-      els.heroDelayPill.textContent = "定刻運行";
+      els.heroDelayPill.textContent = "定刻";
       els.heroDelayPill.className = "status-tag";
       els.heroDelayText.innerHTML = `遅れ <strong>+0分</strong>`;
     }
-    els.countdownLabel.textContent = "次のバスが来るまで";
+    els.countdownLabel.textContent = "次のバスまで";
     const mins = Number(bus.minutes_until ?? 0);
     if (mins <= 0) {
       els.countdownPrefix.textContent = "";
@@ -317,7 +321,8 @@ function renderMainHeroCard(bus, data) {
 
   const loc = bus.location || {};
   els.heroLocationHeadline.textContent = loc.headline || "--";
-  els.heroLocationSubtext.textContent = loc.subtext || "";
+  // 乗車中は上のカウントダウンと重複する到着予定・遅延サブテキストを省略してスッキリさせる
+  els.heroLocationSubtext.textContent = isInTransit ? "" : (loc.subtext || "");
 
   const prog = Math.max(0, Math.min(100, Number(loc.progress_percent ?? 0)));
   els.heroProgressFill.style.width = `${prog}%`;
@@ -510,11 +515,11 @@ function renderBusList(inTransitList, upcomingList, activeBus) {
       const isPinned = key === state.pinnedBusKey;
       const isInTransit = bus.bus_state === "in_transit";
       const bDelay = Number(bus.delay_minutes || 0);
-      const delayStr = bDelay > 0 ? `遅れ +${bDelay}分` : "遅れなし";
+      const delayStr = bDelay > 0 ? `遅れ +${bDelay}分` : "定刻";
       const locText = bus.location?.headline || "";
 
       const rightBadge = isInTransit
-        ? `<span class="bus-row-wait in-transit-badge">走行中・到着まであと${bus.minutes_until_arrival}分</span>`
+        ? `<span class="bus-row-wait in-transit-badge">走行中 あと${bus.minutes_until_arrival}分</span>`
         : `<span class="bus-row-wait">あと ${bus.minutes_until}分</span>`;
 
       const pinMark = isPinned ? " 📌" : "";
@@ -531,7 +536,7 @@ function renderBusList(inTransitList, upcomingList, activeBus) {
           </div>
           <div class="bus-row-mid">
             <span class="mini-route">${formatRouteLabel(bus.route_no)}</span>
-            <span>${bus.destination}行</span>
+            <span>${formatDestShort(bus.destination)}行</span>
           </div>
           <div class="bus-row-sub">
             <span>${locText}</span>

@@ -158,30 +158,37 @@ body {
 .route-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 7px;
+  min-width: 0;
+  flex: 1;
 }
 
 .route-badge {
   background: var(--surface-sub);
   border: 1px solid var(--border);
   color: var(--text);
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   font-weight: 700;
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .route-dest {
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .header-badges {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  flex-shrink: 0;
 }
 
 .pin-btn {
@@ -189,10 +196,11 @@ body {
   color: var(--text-muted);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 2px 8px;
-  font-size: 0.72rem;
+  padding: 2px 7px;
+  font-size: 0.7rem;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .pin-btn.pinned {
@@ -223,12 +231,13 @@ body {
 }
 
 .status-tag {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 4px;
   background: rgba(34, 197, 94, 0.14);
   color: var(--green);
+  white-space: nowrap;
 }
 
 .status-tag.in-transit {
@@ -528,16 +537,21 @@ body {
 }
 
 .location-main {
-  font-size: 0.98rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--text);
-  margin-bottom: 2px;
+  margin-bottom: 10px;
 }
 
 .location-sub {
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   color: var(--text-muted);
-  margin-bottom: 18px;
+  margin-top: -6px;
+  margin-bottom: 14px;
+}
+
+.location-sub:empty {
+  display: none;
 }
 
 .route-track-wrap {
@@ -773,6 +787,7 @@ body {
 
 .bus-row-wait.in-transit-badge {
   color: #60a5fa;
+  font-size: 0.74rem;
 }
 
 .bus-row-mid {
@@ -798,7 +813,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   color: var(--text-muted);
 }
 
