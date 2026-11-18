@@ -560,13 +560,13 @@ def _estimate_bus_position(
         track_stops, _ = _layout_focus_track(stop_names, boarding_idx=0, focus_idx=None)
         if minutes_until_departure > 5:
             return {
-                "headline": "姫路駅（北口 18番のりば）（始発）発車待機中",
+                "headline": "発車待機中",
                 "subtext": f"当停留所始発便（発車{minutes_until_departure}分前）",
                 "progress_percent": 0,
                 "track_stops": track_stops,
             }
         return {
-            "headline": "姫路駅（北口 18番のりば）のりば着車・乗車案内中",
+            "headline": "乗車案内中",
             "subtext": "まもなく当停留所から発車します",
             "progress_percent": 2,
             "track_stops": track_stops,
@@ -580,13 +580,13 @@ def _estimate_bus_position(
         track_stops, _ = _layout_focus_track(stop_names, boarding_idx=0, focus_idx=None)
         if minutes_until_departure > 5:
             return {
-                "headline": "県立大工学部（始発）発車待機中",
+                "headline": "発車待機中",
                 "subtext": f"当停留所始発便（発車{minutes_until_departure}分前）",
                 "progress_percent": 0,
                 "track_stops": track_stops,
             }
         return {
-            "headline": "県立大工学部 のりば着車・乗車案内中",
+            "headline": "乗車案内中",
             "subtext": "まもなく当停留所から発車します",
             "progress_percent": 2,
             "track_stops": track_stops,
