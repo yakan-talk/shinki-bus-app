@@ -148,6 +148,7 @@ function renderBusStatus(data) {
     .join("");
 
   els.stopLabelsLayer.innerHTML = trackStops
+    .filter((s) => s.show_label !== false)
     .map((s) => {
       let alignClass = "";
       if (s.percent <= 5) alignClass = "align-left";
