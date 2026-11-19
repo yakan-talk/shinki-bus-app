@@ -115,6 +115,7 @@ const els = {
   pinBtnText: document.getElementById("pinBtnText"),
   heroDelayPill: document.getElementById("heroDelayPill"),
   countdownLabel: document.getElementById("countdownLabel"),
+  countdownValueRow: document.querySelector(".countdown-value-row"),
   countdownPrefix: document.getElementById("countdownPrefix"),
   heroMinutesUntil: document.getElementById("heroMinutesUntil"),
   countdownUnit: document.getElementById("countdownUnit"),
@@ -348,6 +349,7 @@ function renderMainHeroCard(bus, data) {
       els.heroDelayText.innerHTML = `遅れ <strong>+0分</strong>`;
     }
     els.countdownLabel.textContent = `${destShort} 到着まで`;
+    els.countdownValueRow?.classList.remove("is-departing-soon");
     els.countdownPrefix.textContent = "あと";
     els.heroMinutesUntil.textContent = String(Math.max(1, Number(bus.minutes_until_arrival ?? 1)));
     els.countdownUnit.textContent = "分";
@@ -369,10 +371,12 @@ function renderMainHeroCard(bus, data) {
       els.countdownPrefix.textContent = "";
       els.heroMinutesUntil.textContent = "まもなく";
       els.countdownUnit.textContent = "発車";
+      els.countdownValueRow?.classList.add("is-departing-soon");
     } else {
       els.countdownPrefix.textContent = data.is_tomorrow ? "翌朝まで あと" : "あと";
       els.heroMinutesUntil.textContent = String(mins);
       els.countdownUnit.textContent = "分";
+      els.countdownValueRow?.classList.remove("is-departing-soon");
     }
     els.heroSchedLabel.innerHTML = `定刻 <strong>${bus.scheduled_time}</strong>`;
     els.locationBlockLabel.textContent = "現在の走行位置";

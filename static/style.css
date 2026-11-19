@@ -274,6 +274,19 @@ body {
   margin-bottom: 8px;
 }
 
+.countdown-value-row.is-departing-soon {
+  gap: 4px;
+}
+
+.countdown-value-row.is-departing-soon .countdown-num {
+  font-size: 1.75rem;
+  letter-spacing: -0.02em;
+}
+
+.countdown-value-row.is-departing-soon .countdown-unit {
+  font-size: 1.1rem;
+}
+
 .countdown-prefix {
   font-size: 1rem;
   color: var(--text-sub);
@@ -1087,6 +1100,14 @@ body.watch-mode .countdown-prefix {
 
 body.watch-mode .countdown-num {
   font-size: 2.15rem;
+}
+
+body.watch-mode .countdown-value-row.is-departing-soon .countdown-num {
+  font-size: 1.15rem;
+}
+
+body.watch-mode .countdown-value-row.is-departing-soon .countdown-unit {
+  font-size: 0.88rem;
 }
 
 body.watch-mode .countdown-unit {
