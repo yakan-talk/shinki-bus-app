@@ -1274,15 +1274,15 @@ body.watch-mode .watch-wait-pill {
 }
 
 body.watch-mode .watch-wait-pill.upcoming {
-  background: rgba(59, 130, 246, 0.16);
-  color: #93c5fd;
-  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: transparent;
+  color: var(--text-sub);
+  border: 1px solid var(--border);
 }
 
 body.watch-mode .watch-wait-pill.in-transit {
-  background: rgba(34, 197, 94, 0.18);
-  color: #4ade80;
-  border: 1px solid rgba(34, 197, 94, 0.45);
+  background: rgba(59, 130, 246, 0.16);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.45);
 }
 
 body.watch-mode .watch-simple-row-mid {
