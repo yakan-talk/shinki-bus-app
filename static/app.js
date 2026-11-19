@@ -25,8 +25,39 @@ function saveTrackMode(mode) {
   }
 }
 
+function getWatchQueryParam() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const w = params.get("watch");
+    if (w === "1" || w === "true") return true;
+    if (w === "0" || w === "false") return false;
+  } catch {
+    // ignore URL parse errors
+  }
+  return null;
+}
+
+function getInitialDirection() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const d = params.get("dir");
+    if (d === "to_univ" || d === "to_station") return d;
+  } catch {
+    // ignore
+  }
+  return "to_station";
+}
+
+function detectWatchMode() {
+  const forced = getWatchQueryParam();
+  if (forced !== null) return forced;
+  const isNarrow = window.matchMedia && window.matchMedia("(max-width: 260px)").matches;
+  const isWatchUA = /Watch|WatchOS/i.test(navigator.userAgent || "");
+  return Boolean(isNarrow || isWatchUA);
+}
+
 const state = {
-  direction: "to_station", // "to_station" | "to_univ"
+  direction: getInitialDirection(), // "to_station" | "to_univ"
   countdown: AUTO_REFRESH_SECONDS,
   timerId: null,
   isFetching: false,
@@ -36,9 +67,22 @@ const state = {
   showAllInTransit: false,
   pinnedBusKey: null,
   trackMode: loadTrackMode(),
+  isWatchMode: detectWatchMode(),
   timetableCache: {},
   selectedTimetableDay: "weekday",
 };
+
+function applyWatchMode() {
+  state.isWatchMode = detectWatchMode();
+  document.body.classList.toggle("watch-mode", state.isWatchMode);
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) {
+    metaTheme.setAttribute("content", state.isWatchMode ? "#000000" : "#121417");
+  }
+  if (state.isWatchMode) {
+    state.pinnedBusKey = null;
+  }
+}
 
 const els = {
   dayTypeChip: document.getElementById("dayTypeChip"),
@@ -46,6 +90,9 @@ const els = {
   updatedAtText: document.getElementById("updatedAtText"),
   autoCountdown: document.getElementById("autoCountdown"),
   refreshBtn: document.getElementById("refreshBtn"),
+  watchUpdatedAt: document.getElementById("watchUpdatedAt"),
+  watchCountdown: document.getElementById("watchCountdown"),
+  watchRefreshBtn: document.getElementById("watchRefreshBtn"),
   locationRefreshBtn: document.getElementById("locationRefreshBtn"),
   locationToggleHead: document.getElementById("locationToggleHead"),
   routeTrackWrap: document.getElementById("routeTrackWrap"),
@@ -109,6 +156,7 @@ function getBusKey(bus) {
 }
 
 function loadPinnedKey(dir) {
+  if (state.isWatchMode) return null;
   try {
     return localStorage.getItem(`${PIN_STORAGE_PREFIX}${dir}`) || null;
   } catch {
@@ -133,6 +181,7 @@ async function fetchBusStatus() {
   state.isFetching = true;
   els.refreshBtn.textContent = "更新中";
   if (els.locationRefreshBtn) els.locationRefreshBtn.disabled = true;
+  if (els.watchRefreshBtn) els.watchRefreshBtn.disabled = true;
 
   try {
     const res = await fetch(`/api/bus-status?direction=${encodeURIComponent(state.direction)}`, {
@@ -144,17 +193,21 @@ async function fetchBusStatus() {
     renderBusStatus(data);
     state.countdown = AUTO_REFRESH_SECONDS;
     els.autoCountdown.textContent = String(state.countdown);
+    if (els.watchCountdown) els.watchCountdown.textContent = String(state.countdown);
   } catch (err) {
     console.error("Failed to fetch bus status:", err);
   } finally {
     state.isFetching = false;
     els.refreshBtn.textContent = "更新";
     if (els.locationRefreshBtn) els.locationRefreshBtn.disabled = false;
+    if (els.watchRefreshBtn) els.watchRefreshBtn.disabled = false;
   }
 }
 
 function renderBusStatus(data) {
-  els.updatedAtText.textContent = (data.updated_at || "--:--").slice(0, 5);
+  const updatedStr = (data.updated_at || "--:--").slice(0, 5);
+  els.updatedAtText.textContent = updatedStr;
+  if (els.watchUpdatedAt) els.watchUpdatedAt.textContent = updatedStr;
   els.dayTypeChip.textContent = data.day_type_label || "平日ダイヤ";
   els.liveSourceText.textContent = data.data_source?.label || "時刻表モード";
 
@@ -171,8 +224,10 @@ function renderBusStatus(data) {
   const firstUpcoming = data.next_bus || upcomingList[0] || null;
   const allBuses = [...inTransitList, ...upcomingList];
 
-  // ピン留め中のバスが到着済みになって消えた場合は自動解除
-  if (state.pinnedBusKey) {
+  // ピン留め中のバスが到着済みになって消えた場合は自動解除（Watch時は無効）
+  if (state.isWatchMode) {
+    state.pinnedBusKey = null;
+  } else if (state.pinnedBusKey) {
     const pinnedExists = allBuses.some((b) => getBusKey(b) === state.pinnedBusKey);
     if (!pinnedExists) {
       // これから乗っていたバスが発車して in_transit に移った場合は自動追尾する
@@ -205,7 +260,10 @@ function renderBusStatus(data) {
   state.viewMode = isViewingInTransit ? "in_transit" : "upcoming";
 
   // 別のバスを見に行っている時に、元のピン留めバスへ戻れるショートカットを表示
-  const pinnedBus = state.pinnedBusKey ? allBuses.find((b) => getBusKey(b) === state.pinnedBusKey) : null;
+  const pinnedBus =
+    !state.isWatchMode && state.pinnedBusKey
+      ? allBuses.find((b) => getBusKey(b) === state.pinnedBusKey)
+      : null;
   if (pinnedBus && activeBus && getBusKey(pinnedBus) !== getBusKey(activeBus)) {
     els.pinnedReturnBar.classList.remove("hidden");
     els.pinnedReturnTime.textContent = pinnedBus.scheduled_time;
@@ -242,6 +300,9 @@ function renderBusStatus(data) {
 }
 
 function formatAnchorLabelHtml(s, isInTransit) {
+  if (state.isWatchMode && s.is_boarding) {
+    return isInTransit ? "出発済" : "のりば";
+  }
   let text = String(s.label || "");
   if (text === "姫路駅(北口)") {
     text = "姫路駅<br>(北口)";
@@ -445,8 +506,8 @@ function renderVerticalTrack(bus, trackStops, prog, isInTransit) {
   }
 
   const busTopPct = n > 1 ? (busFloatIdx / (n - 1)) * 100 : 0;
-  const rowHeightPx = 32;
-  const busTopPx = 16 + busFloatIdx * rowHeightPx;
+  const rowHeightPx = state.isWatchMode ? 28 : 32;
+  const busTopPx = rowHeightPx / 2 + busFloatIdx * rowHeightPx;
 
   const rowsHtml = trackStops
     .map((s, i) => {
@@ -512,7 +573,7 @@ function renderBusList(inTransitList, upcomingList, activeBus) {
     .map((bus) => {
       const key = getBusKey(bus);
       const isSelected = key === activeKey;
-      const isPinned = key === state.pinnedBusKey;
+      const isPinned = !state.isWatchMode && key === state.pinnedBusKey;
       const isInTransit = bus.bus_state === "in_transit";
       const bDelay = Number(bus.delay_minutes || 0);
       const delayStr = bDelay > 0 ? `遅れ +${bDelay}分` : "定刻";
@@ -524,6 +585,31 @@ function renderBusList(inTransitList, upcomingList, activeBus) {
 
       const pinMark = isPinned ? " 📌" : "";
       const timeLabel = isInTransit ? `${bus.scheduled_time}発 (出発済)${pinMark}` : `${bus.scheduled_time}発${pinMark}`;
+
+      if (state.isWatchMode) {
+        // Apple Watch用 超シンプル2行構成:
+        // 1行目: 15:35           [着あと25分] (出発済は色付きステータス風 / 発車前は あと17分)
+        // 2行目: [45系統] 姫路駅(北口) [+1分] (遅れ時のみバッジ表示)
+        const waitMins = Math.max(0, Number(isInTransit ? (bus.minutes_until_arrival ?? 1) : (bus.minutes_until ?? 0)));
+        const waitText = isInTransit ? `着あと${waitMins}分` : `あと${waitMins}分`;
+        const waitClass = isInTransit ? "watch-wait-pill in-transit" : "watch-wait-pill upcoming";
+        const delayHtml = bDelay > 0 ? `<span class="watch-row-delay delayed">+${bDelay}分</span>` : "";
+        const destLabel = formatDestShort(bus.destination);
+
+        return `
+          <div class="bus-row ${isSelected ? "selected" : ""} ${isInTransit ? "in-transit-row" : ""}" data-bus-key="${key}">
+            <div class="watch-row-top">
+              <span class="watch-simple-row-time">${bus.scheduled_time}</span>
+              <span class="${waitClass}">${waitText}</span>
+            </div>
+            <div class="watch-simple-row-mid">
+              <span class="mini-route">${formatRouteLabel(bus.route_no)}</span>
+              <span class="watch-simple-dest-text">${destLabel}</span>
+              ${delayHtml}
+            </div>
+          </div>
+        `;
+      }
 
       return `
         <div class="bus-row ${isSelected ? "selected" : ""} ${isInTransit ? "in-transit-row" : ""}" data-bus-key="${key}">
@@ -643,7 +729,9 @@ function startAutoRefreshLoop() {
     if (state.countdown <= 0) {
       fetchBusStatus();
     } else {
-      els.autoCountdown.textContent = String(state.countdown);
+      const countdownStr = String(state.countdown);
+      els.autoCountdown.textContent = countdownStr;
+      if (els.watchCountdown) els.watchCountdown.textContent = countdownStr;
     }
   }, 1000);
 }
@@ -668,8 +756,12 @@ function toggleTrackMode(forceMode, options = {}) {
     const locEl = els.locationBlock || els.locationToggleHead;
     if (locEl) {
       const rect = locEl.getBoundingClientRect();
-      // 上部が見切れている、または画面外になっている場合は自然に一番上（ヘッダー下）にスムーズスクロール
-      if (rect.top < 20 || rect.bottom > window.innerHeight) {
+      if (state.isWatchMode) {
+        // watchOSでは上スクロールでアドレスバーが出やすいため、上端が見切れた場合のみ最小限スクロール
+        if (rect.top < 0) {
+          locEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      } else if (rect.top < 20 || rect.bottom > window.innerHeight) {
         locEl.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     }
@@ -687,6 +779,9 @@ function toggleTrackMode(forceMode, options = {}) {
 }
 
 els.refreshBtn.addEventListener("click", () => fetchBusStatus());
+if (els.watchRefreshBtn) {
+  els.watchRefreshBtn.addEventListener("click", () => fetchBusStatus());
+}
 if (els.locationRefreshBtn) {
   els.locationRefreshBtn.addEventListener("click", () => fetchBusStatus());
 }
@@ -774,6 +869,29 @@ els.btnDayWeekend.addEventListener("click", () => {
   loadAndRenderFullTimetable();
 });
 
+function syncDirectionTabsUI() {
+  const isToStation = state.direction === "to_station";
+  els.tabToStation.classList.toggle("active", isToStation);
+  els.tabToStation.setAttribute("aria-selected", String(isToStation));
+  els.tabToUniv.classList.toggle("active", !isToStation);
+  els.tabToUniv.setAttribute("aria-selected", String(!isToStation));
+}
+
+if (window.matchMedia) {
+  const watchMq = window.matchMedia("(max-width: 260px)");
+  if (watchMq.addEventListener) {
+    watchMq.addEventListener("change", () => {
+      const prev = state.isWatchMode;
+      applyWatchMode();
+      if (prev !== state.isWatchMode && state.lastPayload) {
+        renderBusStatus(state.lastPayload);
+      }
+    });
+  }
+}
+
+applyWatchMode();
+syncDirectionTabsUI();
 state.pinnedBusKey = loadPinnedKey(state.direction);
 fetchBusStatus();
 startAutoRefreshLoop();

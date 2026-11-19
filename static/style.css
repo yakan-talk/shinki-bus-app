@@ -924,3 +924,554 @@ body {
   color: var(--text-muted);
   text-decoration: underline;
 }
+
+/* Watch専用デフォルト（通常表示では非表示） */
+.watch-mini-bar,
+.tab-label-short,
+.mode-label-short {
+  display: none;
+}
+
+/* =========================================================
+   Apple Watch モード（OLED黒背景＆狭画面向けシンプル表示）
+   ========================================================= */
+body.watch-mode {
+  --bg: #000000;
+  --surface: #111317;
+  --surface-sub: #1a1e24;
+  --border: #262b33;
+  background-color: #000000;
+}
+
+body.watch-mode .container {
+  display: flex;
+  flex-direction: column;
+  max-width: 212px;
+  width: 100%;
+  padding: 4px 5px 18px;
+}
+
+body.watch-mode .watch-hide {
+  display: none !important;
+}
+
+body.watch-mode .tab-label-full,
+body.watch-mode .mode-label-full {
+  display: none;
+}
+
+body.watch-mode .tab-label-short,
+body.watch-mode .mode-label-short {
+  display: inline;
+}
+
+/* 表示順序: 最小トップバー -> 方向タブ -> メイン・一覧 -> ヘッダー(最下段へ) */
+body.watch-mode .watch-mini-bar {
+  order: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  padding: 0 2px;
+}
+
+body.watch-mode .watch-meta-time {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+body.watch-mode .watch-refresh-btn {
+  background: var(--surface);
+  color: var(--text-sub);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  width: 28px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+body.watch-mode .watch-refresh-btn:disabled {
+  opacity: 0.5;
+}
+
+body.watch-mode .tabs {
+  order: 1;
+  padding: 2px;
+  gap: 3px;
+  margin-bottom: 6px;
+  border-radius: 7px;
+}
+
+body.watch-mode .tab {
+  padding: 5px 4px;
+  font-size: 0.72rem;
+  border-radius: 5px;
+}
+
+body.watch-mode main {
+  order: 2;
+}
+
+/* ピン留め関連UIは Watch では非表示 */
+body.watch-mode #pinToggleBtn,
+body.watch-mode #pinnedReturnBar {
+  display: none !important;
+}
+
+/* モード切替バー */
+body.watch-mode .mode-switch-bar {
+  margin-bottom: 6px;
+  gap: 3px;
+}
+
+body.watch-mode .mode-pill {
+  padding: 3px 4px;
+  font-size: 0.66rem;
+}
+
+/* メインカード＆カウントダウン（ファーストビュー収まり重視） */
+body.watch-mode .main-card {
+  padding: 7px 8px 9px;
+  margin-bottom: 8px;
+  border-radius: 9px;
+}
+
+body.watch-mode .main-card-header {
+  margin-bottom: 6px;
+  gap: 4px;
+}
+
+body.watch-mode .route-title {
+  gap: 4px;
+}
+
+body.watch-mode .route-badge {
+  font-size: 0.66rem;
+  padding: 1px 5px;
+}
+
+body.watch-mode .route-dest {
+  font-size: 0.7rem;
+}
+
+body.watch-mode .status-tag {
+  font-size: 0.64rem;
+  padding: 1px 5px;
+}
+
+body.watch-mode .countdown-block {
+  padding: 7px 6px;
+  margin-bottom: 7px;
+  border-radius: 7px;
+}
+
+body.watch-mode .countdown-label {
+  font-size: 0.64rem;
+  margin-bottom: 2px;
+}
+
+body.watch-mode .countdown-value-row {
+  gap: 3px;
+  margin-bottom: 4px;
+}
+
+body.watch-mode .countdown-prefix {
+  font-size: 0.76rem;
+}
+
+body.watch-mode .countdown-num {
+  font-size: 2.15rem;
+}
+
+body.watch-mode .countdown-unit {
+  font-size: 0.85rem;
+}
+
+body.watch-mode .schedule-meta {
+  font-size: 0.66rem;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* 走行位置ブロック（シンプル横ゲージ＋タップで縦表示展開） */
+body.watch-mode .location-block {
+  padding: 7px 8px;
+  border-radius: 7px;
+}
+
+body.watch-mode .location-refresh-btn {
+  display: none;
+}
+
+body.watch-mode .location-header {
+  margin-bottom: 2px;
+}
+
+body.watch-mode .location-label {
+  font-size: 0.64rem;
+}
+
+body.watch-mode .location-chevron {
+  width: 13px;
+  height: 13px;
+}
+
+body.watch-mode .location-main {
+  font-size: 0.76rem;
+  line-height: 1.3;
+  margin-bottom: 6px;
+}
+
+body.watch-mode .location-sub {
+  font-size: 0.64rem;
+  margin-top: -3px;
+  margin-bottom: 8px;
+}
+
+body.watch-mode #stopTopLabelsLayer {
+  display: none !important;
+}
+
+body.watch-mode .stop-dot:not(.boarding),
+body.watch-mode .stop-label-item:not(.boarding) {
+  display: none !important;
+}
+
+body.watch-mode .stop-labels-layer {
+  height: 18px;
+  margin-top: 4px;
+}
+
+body.watch-mode .stop-label-item.boarding {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-sub);
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+body.watch-mode .route-track-wrap {
+  padding: 9px 14px 2px;
+}
+
+body.watch-mode .route-track-bar {
+  height: 5px;
+}
+
+/* Watch用 バスアイコン（横・縦ともに小型の丸ピンアイコンにしてスッキリ化） */
+body.watch-mode .bus-marker {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid var(--accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+body.watch-mode .bus-marker .bus-svg {
+  display: none;
+}
+
+body.watch-mode .v-bus-marker {
+  left: 9.5px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid var(--accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+body.watch-mode .v-bus-marker .bus-svg {
+  display: none;
+}
+
+/* Watch用 縦表示トラック */
+body.watch-mode .v-track-container {
+  padding-left: 22px;
+}
+
+body.watch-mode .v-track-line {
+  left: 8px;
+  top: 14px;
+  bottom: 14px;
+}
+
+body.watch-mode .v-bus-marker {
+  left: 9.5px;
+  width: 18px;
+  height: 18px;
+}
+
+body.watch-mode .v-bus-marker .bus-svg {
+  width: 12px;
+  height: 12px;
+}
+
+body.watch-mode .v-stop-row {
+  height: 28px;
+  gap: 6px;
+  font-size: 0.68rem;
+}
+
+body.watch-mode .v-stop-dot {
+  left: -14px;
+  width: 6px;
+  height: 6px;
+}
+
+body.watch-mode .v-stop-dot.boarding {
+  width: 9px;
+  height: 9px;
+}
+
+body.watch-mode .v-stop-time {
+  min-width: 34px;
+  font-size: 0.66rem;
+}
+
+body.watch-mode .v-time-expected {
+  font-size: 0.68rem;
+}
+
+body.watch-mode .v-time-scheduled-strike {
+  font-size: 0.56rem;
+}
+
+/* 直近のバス一覧＆フッターツール */
+/* Watch用 直近のバス一覧（超シンプル2行表示） */
+body.watch-mode .watch-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 3px;
+}
+
+body.watch-mode .watch-simple-row-time {
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+body.watch-mode .watch-wait-pill {
+  font-size: 0.66rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  line-height: 1.15;
+}
+
+body.watch-mode .watch-wait-pill.upcoming {
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+body.watch-mode .watch-wait-pill.in-transit {
+  background: rgba(34, 197, 94, 0.18);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.45);
+}
+
+body.watch-mode .watch-simple-row-mid {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  flex-wrap: nowrap;
+}
+
+body.watch-mode .mini-route {
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-size: 0.6rem;
+  padding: 1px 4px;
+}
+
+body.watch-mode .watch-simple-dest-text {
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+body.watch-mode .watch-row-delay {
+  font-size: 0.6rem;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+body.watch-mode .watch-row-delay.ontime {
+  background: rgba(34, 197, 94, 0.16);
+  color: var(--green);
+}
+
+body.watch-mode .watch-row-delay.delayed {
+  background: rgba(245, 158, 11, 0.18);
+  color: var(--amber);
+}
+
+body.watch-mode .watch-simple-row-sub {
+  font-size: 0.72rem;
+  color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+body.watch-mode .watch-row-wait strong {
+  font-size: 0.85rem;
+  color: #60a5fa;
+  margin: 0 1px;
+}
+
+body.watch-mode .list-section {
+  padding: 8px 7px;
+  margin-bottom: 8px;
+  border-radius: 9px;
+}
+
+body.watch-mode .list-header {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  margin-bottom: 6px;
+}
+
+body.watch-mode .section-heading {
+  font-size: 0.72rem;
+}
+
+body.watch-mode .stop-note {
+  font-size: 0.62rem;
+}
+
+body.watch-mode .bus-list {
+  gap: 5px;
+}
+
+body.watch-mode .bus-row {
+  padding: 7px 8px;
+  border-radius: 7px;
+}
+
+body.watch-mode .bus-row-top {
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-bottom: 2px;
+}
+
+body.watch-mode .bus-row-time {
+  font-size: 0.8rem;
+}
+
+body.watch-mode .bus-row-arr {
+  font-size: 0.64rem;
+  margin-left: 3px;
+}
+
+body.watch-mode .bus-row-wait {
+  font-size: 0.68rem;
+}
+
+body.watch-mode .bus-row-wait.in-transit-badge {
+  font-size: 0.64rem;
+}
+
+body.watch-mode .bus-row-mid {
+  font-size: 0.68rem;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+body.watch-mode .mini-route {
+  font-size: 0.62rem;
+  padding: 1px 4px;
+}
+
+body.watch-mode .bus-row-sub {
+  font-size: 0.6rem;
+  gap: 4px;
+}
+
+body.watch-mode .footer-tools {
+  gap: 6px;
+}
+
+body.watch-mode .accordion-btn {
+  padding: 8px 9px;
+  font-size: 0.7rem;
+}
+
+body.watch-mode .timetable-panel {
+  padding: 7px;
+}
+
+body.watch-mode .tt-day-btn {
+  padding: 4px;
+  font-size: 0.68rem;
+}
+
+body.watch-mode .tt-row {
+  grid-template-columns: 30px 1fr;
+  padding: 4px 5px;
+  gap: 4px;
+  font-size: 0.66rem;
+}
+
+body.watch-mode .links-row {
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+body.watch-mode .text-link {
+  font-size: 0.66rem;
+}
+
+/* 最下段: タイトル・ダイヤ表示 */
+body.watch-mode .header {
+  order: 3;
+  margin-top: 10px;
+  margin-bottom: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+body.watch-mode .header .header-top {
+  justify-content: center;
+}
+
+body.watch-mode .header .refresh-btn {
+  display: none;
+}
+
+body.watch-mode .header .title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+body.watch-mode .header .meta-line {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}

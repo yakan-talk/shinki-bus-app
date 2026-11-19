@@ -802,10 +802,16 @@ def build_bus_status_payload(
                 "delay_minutes": 0,
                 "status_text": "翌朝始発予定",
                 "location": {
+                    **_estimate_bus_position(
+                        direction=direction_key,
+                        minutes_until_departure=minutes_until,
+                        delay_minutes=0,
+                        origin_label=item.get("origin", ""),
+                        route_no=item.get("route_no", ""),
+                    ),
                     "headline": "本日の運行終了（翌朝始発待機）",
                     "subtext": f"翌朝 {item['time']} 発の始発便です",
                     "progress_percent": 0,
-                    "track_stops": _build_track_stops(direction_key, item.get("origin", ""), item.get("route_no", "")),
                 },
             })
 

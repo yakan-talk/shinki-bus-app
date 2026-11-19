@@ -3,12 +3,37 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="disabled-adaptations" content="watch" />
   <meta name="theme-color" content="#121417" />
   <title>神姫バス 接近・時刻表 | 県立大工学部前 ⇔ 姫路駅（北口）</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
+  <script>
+    (function () {
+      try {
+        var params = new URLSearchParams(window.location.search);
+        var w = params.get("watch");
+        var isWatch = w === "1" || w === "true"
+          ? true
+          : (w === "0" || w === "false"
+            ? false
+            : (window.innerWidth <= 260 || /Watch|WatchOS/i.test(navigator.userAgent)));
+        if (isWatch) {
+          document.body.classList.add("watch-mode");
+          var metaTheme = document.querySelector('meta[name="theme-color"]');
+          if (metaTheme) metaTheme.setAttribute("content", "#000000");
+        }
+      } catch (e) {}
+    })();
+  </script>
   <div class="container">
+    <!-- Watch用最小トップバー（通常時は非表示） -->
+    <div class="watch-mini-bar" id="watchMiniBar">
+      <span class="watch-meta-time"><span id="watchUpdatedAt">--:--</span>更新 (<span id="watchCountdown">30</span>s)</span>
+      <button type="button" class="watch-refresh-btn" id="watchRefreshBtn" aria-label="更新">↻</button>
+    </div>
+
     <!-- シンプルヘッダー -->
     <header class="header">
       <div class="header-top">
@@ -18,8 +43,8 @@
             <span id="dayTypeChip">平日ダイヤ</span>
             <span>・</span>
             <span id="liveSourceText">データ取得中</span>
-            <span>・</span>
-            <span><span id="updatedAtText">--:--</span>更新 (<span id="autoCountdown">30</span>s)</span>
+            <span class="watch-hide">・</span>
+            <span class="watch-hide"><span id="updatedAtText">--:--</span>更新 (<span id="autoCountdown">30</span>s)</span>
           </div>
         </div>
         <button type="button" class="refresh-btn" id="refreshBtn">更新</button>
@@ -35,7 +60,7 @@
         data-direction="to_station"
         aria-selected="true"
       >
-        県立大工学部前 → 姫路駅(北口)
+        <span class="tab-label-full">県立大工学部前 → 姫路駅(北口)</span><span class="tab-label-short">→ 姫路駅</span>
       </button>
       <button
         type="button"
@@ -44,7 +69,7 @@
         data-direction="to_univ"
         aria-selected="false"
       >
-        姫路駅(北口) → 県立大工学部前
+        <span class="tab-label-full">姫路駅(北口) → 県立大工学部前</span><span class="tab-label-short">→ 県立大</span>
       </button>
     </nav>
 
@@ -54,10 +79,10 @@
         <!-- 出発済み走行中バスがある時、またはピン留め中バスがある時に表示される切替バー -->
         <div class="mode-switch-bar hidden" id="modeSwitchBar">
           <button type="button" class="mode-pill active" id="btnModeUpcoming">
-            これから乗る (<span id="modeUpcomingTime">--:--</span>)
+            <span class="mode-label-full">これから乗る</span><span class="mode-label-short">次</span> (<span id="modeUpcomingTime">--:--</span>)
           </button>
           <button type="button" class="mode-pill" id="btnModeInTransit">
-            乗車中 (<span id="modeInTransitTime">--:--</span>)
+            <span class="mode-label-full">乗車中</span><span class="mode-label-short">乗車</span> (<span id="modeInTransitTime">--:--</span>)
           </button>
         </div>
 
@@ -89,8 +114,8 @@
           </div>
           <div class="schedule-meta">
             <span id="heroSchedLabel">定刻 <strong id="heroScheduledTime">--:--</strong></span>
-            <span class="sep">/</span>
-            <span id="heroDelayText">遅れ <strong>+0分</strong></span>
+            <span class="sep watch-hide">/</span>
+            <span class="watch-hide" id="heroDelayText">遅れ <strong>+0分</strong></span>
             <span class="sep">/</span>
             <span>到着見込 <strong id="heroArrivalTime">--:--</strong></span>
           </div>
