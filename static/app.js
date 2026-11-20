@@ -153,7 +153,8 @@ function formatRouteLabel(routeNo) {
 
 function getBusKey(bus) {
   if (!bus) return "";
-  return `${bus.bus_state || "upcoming"}:${bus.scheduled_time}`;
+  if (bus.bus_id) return String(bus.bus_id);
+  return `${bus.scheduled_time || ""}|${bus.route_no || ""}|${bus.destination || ""}|${bus.origin || ""}`;
 }
 
 function loadPinnedKey(dir) {
@@ -414,8 +415,9 @@ function renderMainHeroCard(bus, data) {
     .join("");
 
   // 下側ラベル: 上側(is_focus)と重複しない始発・のりば・終着駅のみをドットの真下に中央揃えで表示
+  // Watch版では上側ラベルを非表示にしているため、常にのりば・出発済ラベルを表示する
   els.stopLabelsLayer.innerHTML = trackStops
-    .filter((s) => s.is_anchor && !s.is_focus)
+    .filter((s) => (state.isWatchMode ? s.is_boarding : s.is_anchor && !s.is_focus))
     .map((s) => {
       const boardingClass = s.is_boarding ? "boarding" : "";
       const htmlLabel = formatAnchorLabelHtml(s, isInTransit);
@@ -559,7 +561,7 @@ function renderBusList(inTransitList, upcomingList, activeBus) {
   let hiddenInTransitCount = 0;
 
   if (!isInTransitMode) {
-    // これから乗るモード: 直近に出発した最新の1本のみ
+    // これから乗るモード: 直近に出発した最新1本 + 選択中/ピン留め中の走行中便があればそれも維持
     visibleInTransit = inTransitList.slice(-1);
   } else {
     // 乗車中・出発済モード: 時系列順で表示（3本以上あるときは「もっと見る」で古い便も展開）
@@ -569,6 +571,15 @@ function renderBusList(inTransitList, upcomingList, activeBus) {
       visibleInTransit = inTransitList.slice(-2);
       hiddenInTransitCount = inTransitList.length - 2;
     }
+  }
+
+  // 選択中またはピン留め中の走行中バスが折りたたまれて消えないよう必ず表示に含める
+  const mustShowKeys = new Set([activeKey, state.pinnedBusKey].filter(Boolean));
+  const extraInTransit = inTransitList.filter(
+    (b) => mustShowKeys.has(getBusKey(b)) && !visibleInTransit.some((v) => getBusKey(v) === getBusKey(b))
+  );
+  if (extraInTransit.length > 0) {
+    visibleInTransit = [...extraInTransit, ...visibleInTransit];
   }
 
   const displayBuses = [...visibleInTransit, ...upcomingList];
@@ -615,6 +626,11 @@ function renderBusList(inTransitList, upcomingList, activeBus) {
         `;
       }
 
+      const statusBadgeHtml =
+        bDelay > 0
+          ? `<span class="status-tag delayed bus-row-status">+${bDelay}分</span>`
+          : `<span class="status-tag bus-row-status">定刻</span>`;
+
       return `
         <div class="bus-row ${isSelected ? "selected" : ""} ${isInTransit ? "in-transit-row" : ""}" data-bus-key="${key}">
           <div class="bus-row-top">
@@ -627,10 +643,7 @@ function renderBusList(inTransitList, upcomingList, activeBus) {
           <div class="bus-row-mid">
             <span class="mini-route">${formatRouteLabel(bus.route_no)}</span>
             <span>${formatDestShort(bus.destination)}行</span>
-          </div>
-          <div class="bus-row-sub">
-            <span>${locText}</span>
-            <span>${delayStr}</span>
+            ${statusBadgeHtml}
           </div>
         </div>
       `;
@@ -660,7 +673,7 @@ function renderBusList(inTransitList, upcomingList, activeBus) {
       const k = row.getAttribute("data-bus-key");
       if (k && state.lastPayload) {
         state.selectedBusKey = k;
-        state.viewMode = k.startsWith("in_transit:") ? "in_transit" : "upcoming";
+        state.viewMode = row.classList.contains("in-transit-row") ? "in_transit" : "upcoming";
         renderBusStatus(state.lastPayload);
       }
     });

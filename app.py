@@ -156,6 +156,21 @@ class TimetableAutoUpdater:
 
 TIMETABLE_UPDATER = TimetableAutoUpdater()
 
+# 当日分のリアルタイム運行情報キャッシュ (検索枠外れ・一時欠落による遅延リセット/ワープ・未到着消失を防止)
+# key: (date_str, direction_key, scheduled_time, route_no) -> dict
+LIVE_BUS_MEMORY: Dict[Tuple[str, str, str, str], Dict[str, Any]] = {}
+LIVE_BUS_MEMORY_LOCK = threading.Lock()
+
+
+def _normalize_route_no(raw: Any) -> str:
+    s = str(raw or "").strip()
+    if not s:
+        return ""
+    if "直行" in s:
+        return "直行"
+    m = re.search(r"(\d+)", s)
+    return m.group(1) if m else s
+
 
 class _UnkohHTMLParser(html.parser.HTMLParser):
     def __init__(self) -> None:
@@ -251,8 +266,8 @@ class ShinkiNaviLiveClient:
             from_code, from_name = "20000", "姫路駅（北口）"
             to_code, to_name = "20240", "県立大工学部"
 
-        # すでに発車して走行中のバス（直近18分以内発）も取得できるよう検索基準時刻を少し前に設定
-        query_dt = now_dt - datetime.timedelta(minutes=18)
+        # すでに発車して走行中・遅延中のバス（直近25分以内発）も取得できるよう検索基準時刻を少し前に設定
+        query_dt = now_dt - datetime.timedelta(minutes=25)
 
         try:
             req_top = urllib.request.Request(
@@ -305,7 +320,8 @@ class ShinkiNaviLiveClient:
             parser_unkoh.feed(unkoh_html)
 
             live_by_time: Dict[str, Dict[str, Any]] = {}
-            proxy_params: List[Tuple[str, str, str, str, str, str]] = []
+            live_by_time_route: Dict[Tuple[str, str], Dict[str, Any]] = {}
+            proxy_params: List[Tuple[Dict[str, Any], str, str, str, str, str]] = []
 
             for card in parser_unkoh.results:
                 dep_m = re.search(r"(\d{1,2}:\d{2})", card.get("dep_time", ""))
@@ -315,6 +331,7 @@ class ShinkiNaviLiveClient:
                 if len(hhmm) == 4:
                     hhmm = "0" + hhmm
 
+                route_key = _normalize_route_no(card.get("route_no", "") or card.get("route_desc", ""))
                 status_text = card.get("status_text", "") or "定刻運行"
                 delay_min = 0
                 delay_m = re.search(r"(\d+)\s*分遅れ", status_text)
@@ -323,19 +340,25 @@ class ShinkiNaviLiveClient:
                 elif "少し遅れ" in status_text:
                     delay_min = 1
 
-                stepwell = card.get("stepwell", "")
-                parts = stepwell.split("_")
-                if len(parts) >= 6 and parts[0] == "stepwell":
-                    proxy_params.append((hhmm, parts[1], parts[2], parts[3], parts[4], parts[5]))
-
-                live_by_time[hhmm] = {
+                entry: Dict[str, Any] = {
                     "dep_time": hhmm,
+                    "route_no": route_key,
                     "status_text": status_text,
                     "delay_minutes": delay_min,
                     "is_running": "運行前" not in status_text,
                     "gps_station_cd": None,
                     "gps_station_name": None,
                 }
+
+                stepwell = card.get("stepwell", "")
+                parts = stepwell.split("_")
+                if len(parts) >= 6 and parts[0] == "stepwell":
+                    proxy_params.append((entry, parts[1], parts[2], parts[3], parts[4], parts[5]))
+
+                if route_key:
+                    live_by_time_route[(hhmm, route_key)] = entry
+                if hhmm not in live_by_time:
+                    live_by_time[hhmm] = entry
 
             if proxy_params:
                 xs = ",".join(p[1] for p in proxy_params)
@@ -359,28 +382,28 @@ class ShinkiNaviLiveClient:
                     for idx, item in enumerate(proxy_json):
                         if idx >= len(proxy_params) or not isinstance(item, dict):
                             continue
-                        hhmm = proxy_params[idx][0]
-                        if hhmm not in live_by_time:
-                            continue
+                        entry = proxy_params[idx][0]
                         unkyu = item.get("unkyu_info", "")
                         delay_val = int(item.get("delay_time", 0) or 0)
                         last_cd = str(item.get("last_station_cd", "") or "")
-                        live_by_time[hhmm]["delay_minutes"] = max(live_by_time[hhmm]["delay_minutes"], delay_val)
-                        live_by_time[hhmm]["is_running"] = (unkyu == "運行")
+                        entry["delay_minutes"] = max(entry["delay_minutes"], delay_val)
+                        entry["is_running"] = (unkyu == "運行")
                         if last_cd:
-                            live_by_time[hhmm]["gps_station_cd"] = last_cd
-                            live_by_time[hhmm]["gps_station_name"] = STATION_CODE_MAP.get(last_cd)
+                            entry["gps_station_cd"] = last_cd
+                            entry["gps_station_name"] = STATION_CODE_MAP.get(last_cd)
 
             return {
                 "ok": len(live_by_time) > 0,
                 "source": "shinkibus_navi_live" if live_by_time else "timetable_fallback",
                 "live_items_by_time": live_by_time,
+                "live_items_by_time_route": live_by_time_route,
             }
         except Exception:
             return {
                 "ok": False,
                 "source": "timetable_fallback",
                 "live_items_by_time": {},
+                "live_items_by_time_route": {},
             }
 
 
@@ -696,22 +719,78 @@ def build_bus_status_payload(
     live_client = ShinkiNaviLiveClient(timeout=2.6)
     live_res = live_client.fetch_live_direction(direction_key, now_dt)
     live_map = live_res.get("live_items_by_time", {})
+    live_map_route = live_res.get("live_items_by_time_route", {})
+
+    today_str = now_dt.strftime("%Y-%m-%d")
+    use_memory = not bool(override_time)
+    if use_memory:
+        with LIVE_BUS_MEMORY_LOCK:
+            stale_keys = [k for k in LIVE_BUS_MEMORY if k[0] != today_str]
+            for sk in stale_keys:
+                LIVE_BUS_MEMORY.pop(sk, None)
 
     now_minutes = now_dt.hour * 60 + now_dt.minute
     now_minutes_float = now_minutes + (now_dt.second / 60.0)
     enriched_upcoming: List[Dict[str, Any]] = []
     in_transit_buses: List[Dict[str, Any]] = []
+    dest_terminal_name = "姫路駅(北口)" if direction_key == "to_station" else "県立大工学部"
 
-    for item in schedule_list:
+    for idx, item in enumerate(schedule_list):
         t_parts = list(map(int, item["time"].split(":")))
         sched_min = t_parts[0] * 60 + t_parts[1]
         ride_min = int(item.get("ride_minutes", 27))
+        route_key = _normalize_route_no(item.get("route_no", ""))
+        bus_id = f"{direction_key}|{day_type}|{idx}|{item['time']}|{route_key}"
 
-        live_info = live_map.get(item["time"])
+        live_info = live_map_route.get((item["time"], route_key)) or live_map.get(item["time"])
+        mem_key = (today_str, direction_key, item["time"], route_key)
+        cached = None
+        if use_memory:
+            with LIVE_BUS_MEMORY_LOCK:
+                cached = LIVE_BUS_MEMORY.get(mem_key)
+
+        is_running_live = False
         if live_info:
-            delay_min = int(live_info.get("delay_minutes", 0))
-            status_text = live_info.get("status_text", "定刻運行")
-            gps_station = live_info.get("gps_station_name")
+            new_delay = int(live_info.get("delay_minutes", 0))
+            new_status = live_info.get("status_text", "定刻運行")
+            new_gps = live_info.get("gps_station_name")
+            new_is_running = bool(live_info.get("is_running", False))
+
+            # 発車後にNAVI側で一時的に非運行・0分遅れへリセットされた場合の急ワープを防止
+            if (
+                cached
+                and int(cached.get("delay_minutes", 0)) >= 2
+                and new_delay == 0
+                and not new_is_running
+                and not new_gps
+                and now_minutes >= sched_min
+            ):
+                delay_min = int(cached["delay_minutes"])
+                status_text = cached.get("status_text", f"{delay_min}分遅れ")
+                age_sec = (now_dt - cached["updated_at"]).total_seconds()
+                gps_station = cached.get("gps_station_name") if age_sec <= 120 else None
+                is_running_live = bool(cached.get("is_running", False)) if age_sec <= 120 else False
+            else:
+                delay_min = new_delay
+                status_text = new_status
+                gps_station = new_gps
+                is_running_live = new_is_running
+                if use_memory:
+                    with LIVE_BUS_MEMORY_LOCK:
+                        LIVE_BUS_MEMORY[mem_key] = {
+                            "delay_minutes": delay_min,
+                            "status_text": status_text,
+                            "gps_station_name": gps_station,
+                            "is_running": is_running_live,
+                            "updated_at": now_dt,
+                        }
+        elif cached and (now_dt - cached["updated_at"]).total_seconds() <= 5400:
+            # 検索枠外れ・一時的な通信失敗時も直近の遅延情報を引き継ぎ、定刻への急ワープと未到着消失を防止
+            delay_min = int(cached.get("delay_minutes", 0))
+            status_text = cached.get("status_text", "定刻運行")
+            age_sec = (now_dt - cached["updated_at"]).total_seconds()
+            gps_station = cached.get("gps_station_name") if age_sec <= 120 else None
+            is_running_live = bool(cached.get("is_running", False)) if age_sec <= 120 else False
         else:
             delay_min = 0
             status_text = "定刻運行" if sched_min - now_minutes <= 15 else "運行予定"
@@ -731,6 +810,18 @@ def build_bus_status_payload(
         expected_arrival_str = f"{(arr_min // 60) % 24:02d}:{arr_min % 60:02d}"
         minutes_until_arrival = arr_min - now_minutes
 
+        # GPS上でまだ終点に到着していない走行中バスが予定時刻超過で消えるのを防止
+        if (
+            is_running_live
+            and gps_station
+            and gps_station != dest_terminal_name
+            and minutes_until < 0
+            and minutes_until_arrival <= 0
+        ):
+            minutes_until_arrival = 1
+            adj_arr = now_minutes + 1
+            expected_arrival_str = f"{(adj_arr // 60) % 24:02d}:{adj_arr % 60:02d}"
+
         # すでに出発したが、まだ目的地に到着していない走行中バス (乗車中モード用)
         if minutes_until < 0 and minutes_until_arrival > 0:
             elapsed_float = max(0.0, now_minutes_float - expected_min)
@@ -746,6 +837,7 @@ def build_bus_status_payload(
             )
             in_transit_buses.append({
                 **item,
+                "bus_id": bus_id,
                 "bus_state": "in_transit",
                 "scheduled_time": item["time"],
                 "expected_time": expected_time_str,
@@ -773,6 +865,7 @@ def build_bus_status_payload(
 
         enriched_upcoming.append({
             **item,
+            "bus_id": bus_id,
             "bus_state": "upcoming",
             "scheduled_time": item["time"],
             "expected_time": expected_time_str,
@@ -787,12 +880,14 @@ def build_bus_status_payload(
     is_tomorrow = False
     if not enriched_upcoming and schedule_list:
         is_tomorrow = True
-        for item in schedule_list[:5]:
+        for idx, item in enumerate(schedule_list[:5]):
             t_parts = list(map(int, item["time"].split(":")))
             sched_min = (t_parts[0] + 24) * 60 + t_parts[1]
             minutes_until = sched_min - now_minutes
+            route_key = _normalize_route_no(item.get("route_no", ""))
             enriched_upcoming.append({
                 **item,
+                "bus_id": f"{direction_key}|{day_type}|tomorrow_{idx}|{item['time']}|{route_key}",
                 "bus_state": "upcoming",
                 "scheduled_time": item["time"],
                 "expected_time": item["time"],

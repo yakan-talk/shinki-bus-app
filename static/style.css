@@ -67,6 +67,8 @@ body {
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .refresh-btn:active {
@@ -809,7 +811,13 @@ body {
   gap: 7px;
   font-size: 0.82rem;
   color: var(--text-sub);
-  margin-bottom: 4px;
+  margin-bottom: 0;
+}
+
+.bus-row-status {
+  margin-left: auto;
+  font-size: 0.68rem;
+  padding: 1px 6px;
 }
 
 .mini-route {
